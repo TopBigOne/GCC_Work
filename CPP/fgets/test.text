@@ -1,0 +1,7 @@
+C语言fgets和fputs函数的用法详解（以字符串的形式读写文件）
+
+
+#define N 101
+char str[N];
+FILE *fp = fopen("D:\\demo.txt", "r");
+fgets(str, N, fp);
