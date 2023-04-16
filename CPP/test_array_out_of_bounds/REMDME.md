@@ -13,7 +13,7 @@ static Frame *frame_queue_peek(FrameQueue *f) {
 array[index%size]
 ```
 
-### 我写了测试代码
+### [我写了测试代码](https://github.com/TopBigOne/GCC_Work/blob/master/CPP/test_array_out_of_bounds/main.cpp)
 ### 结论
 * index%size 以后，
   * 当index是一个正常没有越界的index，那就正常使用
