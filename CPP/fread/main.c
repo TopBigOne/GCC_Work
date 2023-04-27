@@ -118,8 +118,9 @@ void test_with_pointer_jia_jia() {
     long read_result = fread(buffer, sizeof(char), 3, fp);
     printf(" read_result is    : %ld\n", read_result);
     printf(" buffer content is : %s\n", buffer);
-    // rewind(fp);
-    read_result = fread(buffer + 3, sizeof(char), 2, fp);
+    rewind(fp);
+    // 不加的话 ，会直接重头开始
+    read_result = fread(buffer+3, sizeof(char), 2, fp);
     printf(" read_result is    : %ld\n", read_result);
     printf(" buffer content is : %s\n", buffer);
 
