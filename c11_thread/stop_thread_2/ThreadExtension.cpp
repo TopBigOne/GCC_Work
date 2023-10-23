@@ -48,23 +48,24 @@ void ThreadExtension::ResumeThread() {
 }
 
 void ThreadExtension::StopThread() {
-    if (m_pThread != nullptr) {
-        m_Thread_Stop_Flag = true;
-        m_Thread_Pause_Flag = false;
-
-        m_Condition_Variable.notify_all();
-
-        if (m_pThread->joinable()) {
-            m_pThread->join();
-        }
-
-        // 释放
-        m_pThread.reset();
-
-        if (m_pThread == nullptr) {
-            m_Thread_State = ThreadState::Stopped;
-        }
+    if (m_pThread == nullptr) {
+        return;
     }
+    m_Thread_Stop_Flag = true;
+    m_Thread_Pause_Flag = false;
+    m_Condition_Variable.notify_all();
+
+    if (m_pThread->joinable()) {
+        m_pThread->join();
+    }
+
+    // 释放
+    m_pThread.reset();
+
+    if (m_pThread == nullptr) {
+        m_Thread_State = ThreadState::Stopped;
+    }
+
 }
 
 int ThreadExtension::GetThreadState() const {
