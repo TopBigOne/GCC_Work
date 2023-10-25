@@ -6,8 +6,7 @@
 #include "zlib.h"
 
 
-
-void TestEvp::decryptFile(const unsigned char *key, const unsigned char *iv) {
+void TestEvp::decryptFile(const unsigned char *key, const unsigned char *iv, char *middleOutputFile, char *outputFile) {
 
     printf("decryptFile.\n");
     FILE *ciphertextFile = fopen(middleOutputFile, "rb");
@@ -42,8 +41,8 @@ void TestEvp::decryptFile(const unsigned char *key, const unsigned char *iv) {
 
     unsigned char ciphertextBuffer[BUFFER_SIZE];
     unsigned char plaintextBuffer[BUFFER_SIZE + EVP_MAX_BLOCK_LENGTH];
-    int bytesRead = 0;
-    int plaintextLength = 0;
+    int           bytesRead       = 0;
+    int           plaintextLength = 0;
 
     while ((bytesRead = fread(ciphertextBuffer, 1, BUFFER_SIZE, ciphertextFile)) > 0) {
         if (EVP_DecryptUpdate(ctx, plaintextBuffer, &plaintextLength, ciphertextBuffer, bytesRead) != 1) {
@@ -75,17 +74,17 @@ void TestEvp::decryptFile(const unsigned char *key, const unsigned char *iv) {
 
 }
 
-void TestEvp::encryptFile(const unsigned char *key, const unsigned char *iv) {
+void TestEvp::encryptFile(const unsigned char *key, const unsigned char *iv, char *input, char *middleOutput) {
     puts("encryptFile");
-    printf("    inputFile       : %s\n", inputFile);
+    printf("    input        : %s\n", input);
 
-    FILE *plaintextFile = fopen(inputFile, "rb");
+    FILE *plaintextFile = fopen(input, "rb");
     if (!plaintextFile) {
         printf("Failed to open plaintext file.\n");
         return;
     }
-    printf("    middleOutputFile : %s\n", middleOutputFile);
-    FILE *ciphertextFile = fopen(middleOutputFile, "wb");
+    printf("    middleOutput : %s\n", middleOutput);
+    FILE *ciphertextFile = fopen(middleOutput, "wb");
     if (ciphertextFile == nullptr) {
         fprintf(stderr, "Failed to create ciphertext file.\n");
         fclose(plaintextFile);
@@ -110,8 +109,8 @@ void TestEvp::encryptFile(const unsigned char *key, const unsigned char *iv) {
 
     unsigned char plaintextBuffer[BUFFER_SIZE];
     unsigned char ciphertextBuffer[BUFFER_SIZE + EVP_MAX_BLOCK_LENGTH];
-    int bytesRead = 0;
-    int ciphertextLength = 0;
+    int           bytesRead        = 0;
+    int           ciphertextLength = 0;
 
     while ((bytesRead = fread(plaintextBuffer, 1, BUFFER_SIZE, plaintextFile)) > 0) {
         if (EVP_EncryptUpdate(ctx, ciphertextBuffer, &ciphertextLength, plaintextBuffer, bytesRead) != 1) {
@@ -166,32 +165,6 @@ TestEvp::TestEvp() {
     puts("TestEvp Init");
 
 
-    const char *PROJECT_ROOT = "/Users/dev/Documents/GCC_Work/CPP/Crypto_Demo/";
-
-
-    // case 1:
-    string tempOne("pratice_openssl/ttt.zip");
-    tempOne.insert(0, PROJECT_ROOT);
-    inputFile = new char[tempOne.length() + 1];
-    strcpy(inputFile, tempOne.c_str());
-
-    // case 2:
-    string tempTwo("/pratice_openssl/for_google_app");
-    tempTwo.insert(0, PROJECT_ROOT);
-    middleOutputFile = new char[tempTwo.length() + 1];
-    strcpy(middleOutputFile, tempTwo.c_str());
-
-    // case 3:
-    string tempThree("/pratice_openssl/ttt3");
-    tempThree.insert(0, PROJECT_ROOT);
-    outputFile = new char[tempThree.length() + 1];
-    strcpy(outputFile, tempThree.c_str());
-    // print:
-    printf("    inputFile        : %s\n", inputFile);
-    printf("    middleOutputFile : %s\n", middleOutputFile);
-    printf("    outputFile       : %s\n", outputFile);
-
-
     generateRandomKey(key);
     generateRandomKey(iv);
     printRandomKey();
@@ -200,9 +173,7 @@ TestEvp::TestEvp() {
 }
 
 TestEvp::~TestEvp() {
-    free(inputFile);
-    free(middleOutputFile);
-    free(outputFile);
+
 }
 
 

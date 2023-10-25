@@ -4,6 +4,7 @@
 
 #include "FlowManager.h"
 #include "TestZlib.h"
+#include "TestEvp.h"
 
 FlowManager::FlowManager() {
     sinohydrosaurusDexPath.append(ROOT_DIR);
@@ -20,27 +21,65 @@ FlowManager::FlowManager() {
     sinohydrosaurus_Dex_DecompressPath.append(WORK_DIR);
     sinohydrosaurus_Dex_DecompressPath.append(SINOHYDROSAURUS_DECOMPRESS_NAME);
 
+    // 加密路径
+    sinohydrosaurus_Dex_EncryptPath.append(ROOT_DIR);
+    sinohydrosaurus_Dex_EncryptPath.append(WORK_DIR);
+    sinohydrosaurus_Dex_EncryptPath.append(SINOHYDROSAURUS_ENCRYPT_NAME);
+
+
+    // 解密路径
+    sinohydrosaurus_Dex_DecipherPath.append(ROOT_DIR);
+    sinohydrosaurus_Dex_DecipherPath.append(WORK_DIR);
+    sinohydrosaurus_Dex_DecipherPath.append(SINOHYDROSAURUS_DECIPHER_COMPRESS_NAME);
+
+
 }
 
 void FlowManager::CompressDex() {
-    char *p1 = const_cast<char * >(sinohydrosaurus_Dex_CompressPath.c_str());
-    char *p2 = const_cast<char *>(sinohydrosaurus_Dex_CompressPath.c_str());
+    puts("step 1");
+    char     *p1 = const_cast<char * >(sinohydrosaurus_Dex_CompressPath.c_str());
+    char     *p2 = const_cast<char *>(sinohydrosaurus_Dex_CompressPath.c_str());
     TestZlib testZlib;
     testZlib.compress_one_file(p1, p2);
 
 }
 
 
-void FlowManager::DecompressDex() {
-    char *p1 = const_cast<char * >(sinohydrosaurusDexPath.c_str());
-    char *p2 = const_cast<char *>(sinohydrosaurus_Dex_DecompressPath.c_str());
-    TestZlib testZlib;
-    testZlib.decompress_one_file(p1, p2);
+/**
+ * 加密
+ */
+void FlowManager::handleEncryptZip() {
+    puts("step 2");
+    char    *p1 = const_cast<char * >(sinohydrosaurus_Dex_CompressPath.c_str());
+    char    *p2 = const_cast<char *>(sinohydrosaurus_Dex_EncryptPath.c_str());
+    TestEvp testEvp;
+    testEvp.encryptFile(key, iv, p1, p2);
+
+}
+
+/**
+ * 解密
+ */
+void FlowManager::handleDecipher() {
+    puts("step 3");
+    char    *p1 = const_cast<char * >(sinohydrosaurus_Dex_EncryptPath.c_str());
+    char    *p2 = const_cast<char *>(sinohydrosaurus_Dex_DecipherPath.c_str());
+    TestEvp testEvp;
+    testEvp.decryptFile(key, iv, p1, p2);
+
 
 }
 
 
-void FlowManager::handleEncryptZip() {
+/**
+ * 解压缩
+ */
+void FlowManager::DecompressDex() {
+    puts("step 4");
+    char     *p1 = const_cast<char * >(sinohydrosaurusDexPath.c_str());
+    char     *p2 = const_cast<char *>(sinohydrosaurus_Dex_DecompressPath.c_str());
+    TestZlib testZlib;
+    testZlib.decompress_one_file(p1, p2);
 
 }
 
@@ -48,6 +87,3 @@ void FlowManager::moveEncryptFileToAssert() {
 
 }
 
-void FlowManager::handleDecipher() {
-
-}

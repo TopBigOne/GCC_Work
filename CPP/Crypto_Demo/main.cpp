@@ -166,8 +166,8 @@ void testNormal() {
  */
 void testEvpCase() {
     auto *testEvp = new TestEvp;
-    testEvp->encryptFile(testEvp->key, testEvp->iv);
-    testEvp->decryptFile(testEvp->key, testEvp->iv);
+    //testEvp->encryptFile(testEvp->key, testEvp->iv);
+   // testEvp->decryptFile(testEvp->key, testEvp->iv);
 }
 
 
@@ -207,8 +207,15 @@ void testZlib() {
 
 void testFlowManager() {
     FlowManager flowManager;
+
+
+    // 压缩
     flowManager.CompressDex();
-    // 只是测试
+    // 加密
+    flowManager.handleEncryptZip();
+    // 解密
+    flowManager.handleDecipher();
+    // 解压
     flowManager.DecompressDex();
 }
 

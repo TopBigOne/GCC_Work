@@ -31,18 +31,17 @@ public:
         exit(1);
     }
 
-    void encryptFile(const unsigned char *key, const unsigned char *iv);
+    void encryptFile(const unsigned char *key, const unsigned char *iv, char *input, char *middleOutput);
 
-    void decryptFile(const unsigned char *key, const unsigned char *iv);
+    void decryptFile(const unsigned char *key, const unsigned char *iv,char *middleOutputFile, char *outputFile);
 
     void generateRandomKey(unsigned char *key);
 
     void printRandomKey();
 
 public:
-    char          *inputFile        = nullptr;
-    char          *middleOutputFile = nullptr;
-    char          *outputFile       = nullptr;
+
+
     unsigned char key[16];
     unsigned char iv[16];
 
