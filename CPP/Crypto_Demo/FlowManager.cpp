@@ -61,7 +61,7 @@ void FlowManager::handleEncryptZip() {
  * 解密
  */
 void FlowManager::handleDecipher() {
-    puts("step 3");
+    puts("step 4 ");
     char    *p1 = const_cast<char * >(sinohydrosaurus_Dex_EncryptPath.c_str());
     char    *p2 = const_cast<char *>(sinohydrosaurus_Dex_DecipherPath.c_str());
     TestEvp testEvp;
@@ -75,15 +75,39 @@ void FlowManager::handleDecipher() {
  * 解压缩
  */
 void FlowManager::DecompressDex() {
-    puts("step 4");
+    puts("step 5");
     char     *p1 = const_cast<char * >(sinohydrosaurusDexPath.c_str());
     char     *p2 = const_cast<char *>(sinohydrosaurus_Dex_DecompressPath.c_str());
     TestZlib testZlib;
     testZlib.decompress_one_file(p1, p2);
-
 }
 
 void FlowManager::moveEncryptFileToAssert() {
+    puts("step  3: moveEncryptFileToAssert");
+
+    string asset_dex_Encrypt_Path;
+    asset_dex_Encrypt_Path.append(
+            "/Users/dev/Documents/Andorid_Work/Work_1/TestAssetManager/app/src/main/assets/sinohydrosaurus_encrypt");
+
+
+    std::ifstream sourceFile(sinohydrosaurus_Dex_EncryptPath, std::ios::binary);
+    if (!sourceFile) {
+        std::cerr << "Failed to open source file: " << sinohydrosaurus_Dex_EncryptPath << std::endl;
+
+    }
+
+    std::ofstream destinationFile(asset_dex_Encrypt_Path, std::ios::binary);
+    if (!destinationFile) {
+        std::cerr << "Failed to open destination file: " << asset_dex_Encrypt_Path << std::endl;
+        sourceFile.close();
+
+    }
+
+    destinationFile << sourceFile.rdbuf();
+
+    sourceFile.close();
+    destinationFile.close();
+
 
 }
 

@@ -6,6 +6,9 @@
 #define CRYPTO_DEMO_FLOWMANAGER_H
 
 #include <string>
+#include <cstdio>
+#include <fstream>
+
 
 using namespace std;
 
@@ -63,7 +66,7 @@ public:
 
     // 压缩包路径
     const char *SINOHYDROSAURUS_COMPRESS_NAME = "result/sinohydrosaurus_compress";
-    string sinohydrosaurus_Dex_CompressPath;
+    string     sinohydrosaurus_Dex_CompressPath;
 
     // 解压缩包路径
     const char *SINOHYDROSAURUS_DECOMPRESS_NAME = "result/sinohydrosaurus_decompress.dex";
@@ -76,7 +79,7 @@ public:
 
     // 解密压缩包路径
     const char *SINOHYDROSAURUS_DECIPHER_COMPRESS_NAME = "result/sinohydrosaurus_Decipher_compress";
-    string sinohydrosaurus_Dex_DecipherPath;
+    string     sinohydrosaurus_Dex_DecipherPath;
 
 
 };

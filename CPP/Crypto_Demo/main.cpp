@@ -167,7 +167,7 @@ void testNormal() {
 void testEvpCase() {
     auto *testEvp = new TestEvp;
     //testEvp->encryptFile(testEvp->key, testEvp->iv);
-   // testEvp->decryptFile(testEvp->key, testEvp->iv);
+    // testEvp->decryptFile(testEvp->key, testEvp->iv);
 }
 
 
@@ -213,6 +213,11 @@ void testFlowManager() {
     flowManager.CompressDex();
     // 加密
     flowManager.handleEncryptZip();
+
+
+    // 将加密文件copy到android的asset中
+    flowManager.moveEncryptFileToAssert();
+
     // 解密
     flowManager.handleDecipher();
     // 解压
