@@ -14,8 +14,13 @@ link_directories(${OPENSSL_HEAD}/lib/)
 
 link_libraries(ssl crypto z)
 
-add_executable(Crypto_Demo main.cpp
+add_executable(Crypto_Demo
+        main.cpp
         TestEvp.cpp
-        TestEvp.h)
+        TestEvp.h
+        TestZlib.cpp
+        TestZlib.h
+        FlowManager.cpp
+        FlowManager.h)
 
 

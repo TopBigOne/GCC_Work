@@ -23,6 +23,7 @@ class TestEvp {
 
 public:
     TestEvp();
+
     ~TestEvp();
 
     static void handleErrors() {
@@ -39,9 +40,9 @@ public:
     void printRandomKey();
 
 public:
-    char *inputFile = nullptr;
-    char *middleOutputFile = nullptr;
-    char *outputFile = nullptr;
+    char          *inputFile        = nullptr;
+    char          *middleOutputFile = nullptr;
+    char          *outputFile       = nullptr;
     unsigned char key[16];
     unsigned char iv[16];
 

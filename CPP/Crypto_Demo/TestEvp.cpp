@@ -3,6 +3,77 @@
 //
 
 #include "TestEvp.h"
+#include "zlib.h"
+
+
+
+void TestEvp::decryptFile(const unsigned char *key, const unsigned char *iv) {
+
+    printf("decryptFile.\n");
+    FILE *ciphertextFile = fopen(middleOutputFile, "rb");
+    if (!ciphertextFile) {
+        printf("    Failed to open ciphertext file.\n");
+        return;
+    }
+
+    printf("    outputFile :%s\n", outputFile);
+    FILE *plaintextFile = fopen(outputFile, "wb");
+    if (!plaintextFile) {
+        printf("    Failed to create plaintext file.\n");
+        fclose(ciphertextFile);
+        return;
+    }
+
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    if (!ctx) {
+        printf("    Failed to create cipher context.\n");
+        fclose(ciphertextFile);
+        fclose(plaintextFile);
+        return;
+    }
+
+    if (EVP_DecryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, iv) != 1) {
+        printf("Failed to initialize decryption.\n");
+        EVP_CIPHER_CTX_free(ctx);
+        fclose(ciphertextFile);
+        fclose(plaintextFile);
+        return;
+    }
+
+    unsigned char ciphertextBuffer[BUFFER_SIZE];
+    unsigned char plaintextBuffer[BUFFER_SIZE + EVP_MAX_BLOCK_LENGTH];
+    int bytesRead = 0;
+    int plaintextLength = 0;
+
+    while ((bytesRead = fread(ciphertextBuffer, 1, BUFFER_SIZE, ciphertextFile)) > 0) {
+        if (EVP_DecryptUpdate(ctx, plaintextBuffer, &plaintextLength, ciphertextBuffer, bytesRead) != 1) {
+            printf("Decryption failed.\n");
+            EVP_CIPHER_CTX_free(ctx);
+            fclose(ciphertextFile);
+            fclose(plaintextFile);
+            return;
+        }
+
+        fwrite(plaintextBuffer, 1, plaintextLength, plaintextFile);
+    }
+    if (EVP_DecryptFinal_ex(ctx, plaintextBuffer, &plaintextLength) != 1) {
+        printf("Decryption finalization failed.\n");
+        EVP_CIPHER_CTX_free(ctx);
+        fclose(ciphertextFile);
+        fclose(plaintextFile);
+        return;
+    }
+
+    fwrite(plaintextBuffer, 1, plaintextLength, plaintextFile);
+
+    EVP_CIPHER_CTX_free(ctx);
+    fclose(ciphertextFile);
+    fclose(plaintextFile);
+
+    printf("    Decryption completed successfully.\n");
+
+
+}
 
 void TestEvp::encryptFile(const unsigned char *key, const unsigned char *iv) {
     puts("encryptFile");
@@ -69,75 +140,6 @@ void TestEvp::encryptFile(const unsigned char *key, const unsigned char *iv) {
     fclose(ciphertextFile);
 
     printf("    Encryption completed successfully.\n");
-
-
-
-}
-
-void TestEvp::decryptFile(const unsigned char *key, const unsigned char *iv) {
-
-    printf("decryptFile.\n");
-    FILE *ciphertextFile = fopen(middleOutputFile, "rb");
-    if (!ciphertextFile) {
-        printf("    Failed to open ciphertext file.\n");
-        return;
-    }
-
-    printf("    outputFile :%s\n",outputFile);
-    FILE *plaintextFile = fopen(outputFile, "wb");
-    if (!plaintextFile) {
-        printf("    Failed to create plaintext file.\n");
-        fclose(ciphertextFile);
-        return;
-    }
-
-    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-    if (!ctx) {
-        printf("    Failed to create cipher context.\n");
-        fclose(ciphertextFile);
-        fclose(plaintextFile);
-        return;
-    }
-
-    if (EVP_DecryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, iv) != 1) {
-        printf("Failed to initialize decryption.\n");
-        EVP_CIPHER_CTX_free(ctx);
-        fclose(ciphertextFile);
-        fclose(plaintextFile);
-        return;
-    }
-
-    unsigned char ciphertextBuffer[BUFFER_SIZE];
-    unsigned char plaintextBuffer[BUFFER_SIZE + EVP_MAX_BLOCK_LENGTH];
-    int bytesRead = 0;
-    int plaintextLength = 0;
-
-    while ((bytesRead = fread(ciphertextBuffer, 1, BUFFER_SIZE, ciphertextFile)) > 0) {
-        if (EVP_DecryptUpdate(ctx, plaintextBuffer, &plaintextLength, ciphertextBuffer, bytesRead) != 1) {
-            printf("Decryption failed.\n");
-            EVP_CIPHER_CTX_free(ctx);
-            fclose(ciphertextFile);
-            fclose(plaintextFile);
-            return;
-        }
-
-        fwrite(plaintextBuffer, 1, plaintextLength, plaintextFile);
-    }
-    if (EVP_DecryptFinal_ex(ctx, plaintextBuffer, &plaintextLength) != 1) {
-        printf("Decryption finalization failed.\n");
-        EVP_CIPHER_CTX_free(ctx);
-        fclose(ciphertextFile);
-        fclose(plaintextFile);
-        return;
-    }
-
-    fwrite(plaintextBuffer, 1, plaintextLength, plaintextFile);
-
-    EVP_CIPHER_CTX_free(ctx);
-    fclose(ciphertextFile);
-    fclose(plaintextFile);
-
-    printf("    Decryption completed successfully.\n");
 
 
 }

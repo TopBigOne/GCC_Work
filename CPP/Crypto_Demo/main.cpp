@@ -5,7 +5,8 @@
 #include <sys/stat.h>
 #include "TestEvp.h"
 
-#include <openssl/evp.h>
+#include "FlowManager.h"
+#include "TestZlib.h"
 
 
 using namespace std;
@@ -13,15 +14,21 @@ using namespace std;
 // 加密密钥，需要保密
 const static unsigned char key[] = "0123456789abcdef";
 
-string PROJECT_ROOT("/Users/dev/Documents/GCC_Work/CPP/Crypto_Demo/");
-std::string inputFilePath = PROJECT_ROOT.append("pratice_openssl/ttt.zip");
-std::string encryptedFile = PROJECT_ROOT.append("/pratice_openssl/for_google");
-std::string decryptedFile = PROJECT_ROOT.append("pratice_openssl/ttt2.zip");
+string      PROJECT_ROOT("/Users/dev/Documents/GCC_Work/CPP/Crypto_Demo/");
+std::string inputFilePath    = PROJECT_ROOT.append("pratice_openssl/ttt.zip");
+std::string encryptedFile    = PROJECT_ROOT.append("/pratice_openssl/for_google");
+std::string decryptedFile    = PROJECT_ROOT.append("pratice_openssl/ttt2.zip");
 std::string decompressedFile = PROJECT_ROOT.append("pratice_openssl/ttt3");
 
 void testEvpCase();
 
 void testNormal();
+
+void testZlib();
+
+// FlowManager
+void testFlowManager();
+
 
 /**
  * 加密函数
@@ -154,6 +161,9 @@ void testNormal() {
 
 }
 
+/**
+ * 测试加密解密
+ */
 void testEvpCase() {
     auto *testEvp = new TestEvp;
     testEvp->encryptFile(testEvp->key, testEvp->iv);
@@ -161,10 +171,9 @@ void testEvpCase() {
 }
 
 
-int test_fopen()
-{
+int test_fopen() {
     // input.txt
-    FILE* file = fopen("/Users/dev/Documents/GCC_Work/CPP/Crypto_Demo/example.bin", "wb");
+    FILE *file = fopen("/Users/dev/Documents/GCC_Work/CPP/Crypto_Demo/example.bin", "wb");
     if (file == NULL) {
         printf("Failed to create binary file.\n");
         return 1;
@@ -182,11 +191,36 @@ int test_fopen()
 }
 
 
+void testZlib() {
+    fputs("testZlib", stdout);
+    TestZlib testZlib;
+    char     *inFilename     = "/Users/dev/Documents/GCC_Work/CPP/Crypto_Demo/pratice_openssl/test_classes.dex";
+    char     *middleFilename = "/Users/dev/Documents/GCC_Work/CPP/Crypto_Demo/pratice_openssl/ttt_middle";
+    char     *outfilename    = "/Users/dev/Documents/GCC_Work/CPP/Crypto_Demo/pratice_openssl/Zlib_result.dex";
+
+    printf("file size : %ld", testZlib.file_size(inFilename));
+
+    testZlib.compress_one_file(inFilename, middleFilename);
+    testZlib.decompress_one_file(middleFilename, outfilename);
+}
+
+
+void testFlowManager() {
+    FlowManager flowManager;
+    flowManager.CompressDex();
+    // 只是测试
+    flowManager.DecompressDex();
+}
+
+
 int main() {
     // testNormal();
+//    testEvpCase();
 
-     testEvpCase();
 //    test_fopen();
+//    testZlib();
+    testFlowManager();
+
 
     return 0;
 }
