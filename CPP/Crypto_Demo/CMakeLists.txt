@@ -21,6 +21,8 @@ add_executable(Crypto_Demo
         TestZlib.cpp
         TestZlib.h
         FlowManager.cpp
-        FlowManager.h)
+        FlowManager.h
+        handle_string/Proguard.cpp
+        handle_string/Proguard.h)
 
 

@@ -7,6 +7,7 @@
 
 #include "FlowManager.h"
 #include "TestZlib.h"
+#include "handle_string/Proguard.h"
 
 
 using namespace std;
@@ -223,14 +224,28 @@ void testFlowManager() {
     flowManager.DecompressDex();
 }
 
+void testProguardString() {
+
+    string   key_one("jing zhang");
+    Proguard proguard(key_one);
+    string   one("(Landroid/webkit/WebViewClient;)V");
+    string   encrypt_result = proguard.encrypt(one, proguard.key);
+    cout << "encrypt result : " << encrypt_result << endl;
+
+
+    string decrypt_result = proguard.decrypt(encrypt_result, proguard.key);
+    cout << "decrypt result : " << decrypt_result << endl;
+
+
+}
 
 int main() {
     // testNormal();
-//    testEvpCase();
-
-//    test_fopen();
-//    testZlib();
-    testFlowManager();
+    // testEvpCase();
+    //  test_fopen();
+    //  testZlib();
+    // testFlowManager();
+    testProguardString();
 
 
     return 0;
