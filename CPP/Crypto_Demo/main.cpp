@@ -214,7 +214,6 @@ void testFlowManager() {
     // 加密
     flowManager.handleEncryptZip();
 
-
     // 将加密文件copy到android的asset中
     flowManager.moveEncryptFileToAssert();
 

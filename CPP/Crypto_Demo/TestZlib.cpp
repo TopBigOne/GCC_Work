@@ -22,7 +22,7 @@ int TestZlib::decompress_one_file(char *infilename, char *outfilename) {
     return 0;
 }
 
-unsigned long TestZlib::file_size( char *filename) {
+unsigned long TestZlib::file_size(char *filename) {
     FILE *pFile = fopen(filename, "rb");
     fseek(pFile, 0, SEEK_END); //偏移到文件尾
     unsigned long size = ftell(pFile); //读取文件指针到开头的字节数
@@ -48,8 +48,11 @@ int TestZlib::compress_one_file(char *infilename, char *outfilename) {
     }
     fclose(infile); //关闭文件
     gzclose(outfile); //关闭压缩文件
-    printf("原文件大小: %ld bytes\n 压缩后的文件大小: %ld bytes\n 压缩率 %4.2f%%\n", total_read, file_size(outfilename),
+    printf("    原文件大小: %ld bytes\n    压缩后的文件大小: %ld bytes\n    压缩率 %4.2f%%\n", total_read,
+           file_size(outfilename),
            (1.0 -
             file_size(outfilename) * 1.0 / total_read) * 100.0);
+
+    return 0;
 
 }

@@ -65,21 +65,21 @@ public:
     string     sinohydrosaurusDexPath;
 
     // 压缩包路径
-    const char *SINOHYDROSAURUS_COMPRESS_NAME = "result/sinohydrosaurus_compress";
+    const char *SINOHYDROSAURUS_COMPRESS_NAME = "result/1_sinohydrosaurus_compress";
     string     sinohydrosaurus_Dex_CompressPath;
 
-    // 解压缩包路径
-    const char *SINOHYDROSAURUS_DECOMPRESS_NAME = "result/sinohydrosaurus_decompress.dex";
-    string     sinohydrosaurus_Dex_DecompressPath;
 
-    // 加密压缩包路径
-    const char *SINOHYDROSAURUS_ENCRYPT_NAME = "result/sinohydrosaurus_encrypt";
+    // 加密路径
+    const char *SINOHYDROSAURUS_ENCRYPT_NAME = "result/2_sinohydrosaurus_compress_encrypt";
     string     sinohydrosaurus_Dex_EncryptPath;
 
-
-    // 解密压缩包路径
-    const char *SINOHYDROSAURUS_DECIPHER_COMPRESS_NAME = "result/sinohydrosaurus_Decipher_compress";
+    // 解密文件
+    const char *SINOHYDROSAURUS_DECIPHER_COMPRESS_NAME = "result/3_sinohydrosaurus_Decipher_compress";
     string     sinohydrosaurus_Dex_DecipherPath;
+
+    // 解压缩包路径
+    const char *SINOHYDROSAURUS_DECOMPRESS_NAME = "result/4_sinohydrosaurus_decompress.dex";
+    string     sinohydrosaurus_Dex_DecompressPath;
 
 
 };

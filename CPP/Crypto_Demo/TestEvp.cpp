@@ -7,7 +7,6 @@
 
 
 void TestEvp::decryptFile(const unsigned char *key, const unsigned char *iv, char *middleOutputFile, char *outputFile) {
-
     printf("decryptFile.\n");
     FILE *ciphertextFile = fopen(middleOutputFile, "rb");
     if (!ciphertextFile) {
@@ -15,7 +14,8 @@ void TestEvp::decryptFile(const unsigned char *key, const unsigned char *iv, cha
         return;
     }
 
-    printf("    outputFile :%s\n", outputFile);
+    printf("    decryptFilePath  : %s\n", middleOutputFile);
+    printf("    compressFilePath : %s\n", outputFile);
     FILE *plaintextFile = fopen(outputFile, "wb");
     if (!plaintextFile) {
         printf("    Failed to create plaintext file.\n");
@@ -80,7 +80,7 @@ void TestEvp::encryptFile(const unsigned char *key, const unsigned char *iv, cha
 
     FILE *plaintextFile = fopen(input, "rb");
     if (!plaintextFile) {
-        printf("Failed to open plaintext file.\n");
+        fprintf(stderr,"    Failed to open encrypt file.\n");
         return;
     }
     printf("    middleOutput : %s\n", middleOutput);
@@ -162,12 +162,10 @@ void TestEvp::printRandomKey() {
 }
 
 TestEvp::TestEvp() {
-    puts("TestEvp Init");
-
-
     generateRandomKey(key);
     generateRandomKey(iv);
-    printRandomKey();
+    // todo printRandomKey
+    //printRandomKey();
 
 
 }
