@@ -123,7 +123,8 @@ map<string, string> Proguard::collectMapString(const char *filePath) {
     std::string line;
 
 
-    std::regex pattern("constexpr\\s+const\\s+char\\s*\\*(\\w+)\\s*=\\s*\"([^\"]*)\";");
+    // std::regex pattern("constexpr\\s+const\\s+char\\s*\\*(\\w+)\\s*=\\s*\"([^\"]*)\";");
+    std::regex pattern(R"lit(constexpr\s+const\s+char\s*\*(\w+)\s*=\s*"([^"]*)";)lit");
 
     while (std::getline(file, line)) {
         std::smatch match;
@@ -139,5 +140,16 @@ map<string, string> Proguard::collectMapString(const char *filePath) {
 
 
     return stringMap;
+}
+
+void Proguard::writeMapStringToLocalFile(map<string, string> strMap, const char *filePath) {
+    cout << "writeMapStringToLocalFile" << endl;
+    for (const auto &item: strMap) {
+        std::string name    = item.first;
+        std::string content = item.second;
+        cout << "   Name: " << name << ", Content: " << content << endl;
+    }
+
+
 }
 

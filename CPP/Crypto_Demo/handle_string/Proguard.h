@@ -34,6 +34,8 @@ public:
 
     map<string, string> collectMapString(const char *filePath);
 
+    void writeMapStringToLocalFile(map<string, string> strMap, const char *filePath);
+
 
 public:
     string              &key;

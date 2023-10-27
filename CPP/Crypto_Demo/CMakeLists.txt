@@ -23,6 +23,7 @@ add_executable(Crypto_Demo
         FlowManager.cpp
         FlowManager.h
         handle_string/Proguard.cpp
-        handle_string/Proguard.h)
+        handle_string/Proguard.h
+        SSConstant.h)
 
 

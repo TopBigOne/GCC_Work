@@ -1,0 +1,10 @@
+//
+// Created by DEV on 10/27/23.
+//
+
+#ifndef CRYPTO_DEMO_SSCONSTANT_H
+#define CRYPTO_DEMO_SSCONSTANT_H
+
+
+
+#endif //CRYPTO_DEMO_SSCONSTANT_H
