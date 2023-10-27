@@ -10,6 +10,11 @@
 #include <openssl/bio.h>
 #include <openssl/buffer.h>
 #include <string>
+#include <map>
+
+#include <fstream>
+#include <regex>
+#include <iostream>
 
 using namespace std;
 
@@ -27,8 +32,13 @@ public:
 
     string decrypt(const string &plaintext, const string &key);
 
+    map<string, string> collectMapString(const char *filePath);
+
+
 public:
-    string &key;
+    string              &key;
+    map<string, string> stringMap;
+
 
 };
 

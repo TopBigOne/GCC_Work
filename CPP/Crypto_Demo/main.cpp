@@ -227,14 +227,18 @@ void testFlowManager() {
 void testProguardString() {
 
     string   key_one("jing zhang");
+
     Proguard proguard(key_one);
+
     string   one("(Landroid/webkit/WebViewClient;)V");
-    string   encrypt_result = proguard.encrypt(one, proguard.key);
-    cout << "encrypt result : " << encrypt_result << endl;
+   // string   encrypt_result = proguard.encrypt(one, proguard.key);
+   //  cout << "encrypt result : " << encrypt_result << endl;
 
 
-    string decrypt_result = proguard.decrypt(encrypt_result, proguard.key);
-    cout << "decrypt result : " << decrypt_result << endl;
+   // string decrypt_result = proguard.decrypt(encrypt_result, proguard.key);
+    //cout << "decrypt result : " << decrypt_result << endl;
+
+    proguard.collectMapString("/Users/dev/Documents/Andorid_Work/Work_1/TestAssetManager/app/src/main/cpp/lib_TransformStr/SSConstant.h");
 
 
 }
