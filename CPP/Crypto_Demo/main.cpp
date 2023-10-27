@@ -241,7 +241,7 @@ void testProguardString() {
     map<string, string> map = proguard.collectMapString(
             "/Users/dev/Documents/Andorid_Work/Work_1/TestAssetManager/app/src/main/cpp/lib_TransformStr/SSConstant.h");
 
-    proguard.writeMapStringToLocalFile(map, "/Users/dev/Documents/GCC_Work/CPP/Crypto_Demo/SSConstant.h");
+    proguard.writeMapStringToLocalFile(map, "/Users/dev/Documents/GCC_Work/CPP/Crypto_Demo/ZZConstant.h");
 
 
 }

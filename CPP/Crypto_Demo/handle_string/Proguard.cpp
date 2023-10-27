@@ -144,10 +144,33 @@ map<string, string> Proguard::collectMapString(const char *filePath) {
 
 void Proguard::writeMapStringToLocalFile(map<string, string> strMap, const char *filePath) {
     cout << "writeMapStringToLocalFile" << endl;
+
+    std::ofstream outfile(filePath);
+
+    if (outfile.is_open()) {
+        outfile << "#pragma once" << std::endl;
+        outfile << std::endl;
+        outfile << "constexpr const char* string1 = \"Hello\";" << std::endl;
+        outfile << "constexpr const char* string2 = \"World\";" << std::endl;
+
+        outfile.close();
+        std::cout << "Strings have been written to ZZConstant.h." << std::endl;
+    } else {
+        std::cout << "Failed to open ZZConstant.h for writing." << std::endl;
+    }
+
+    if(outfile)
+
+
+
+
     for (const auto &item: strMap) {
         std::string name    = item.first;
         std::string content = item.second;
         cout << "   Name: " << name << ", Content: " << content << endl;
+
+
+
     }
 
 
