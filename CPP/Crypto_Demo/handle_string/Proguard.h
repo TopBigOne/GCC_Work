@@ -28,6 +28,8 @@ public:
 
     ~Proguard();
 
+    void testCaseOne(const string &plaintext, const string &key);
+
     string encrypt(const string &plaintext, const string &key);
 
     string decrypt(const string &plaintext, const string &key);

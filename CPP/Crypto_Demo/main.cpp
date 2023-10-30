@@ -225,23 +225,23 @@ void testFlowManager() {
 }
 
 void testProguardString() {
+    puts("testProguardString");
 
     string key_one("jing zhang");
 
     Proguard proguard(key_one);
+    string   one("(Landroid/webkit/WebViewClient;)V");
 
-    string one("(Landroid/webkit/WebViewClient;)V");
-    // string   encrypt_result = proguard.encrypt(one, proguard.key);
-    //  cout << "encrypt result : " << encrypt_result << endl;
+    proguard.testCaseOne(one, key_one);
 
-
-    // string decrypt_result = proguard.decrypt(encrypt_result, proguard.key);
-    //cout << "decrypt result : " << decrypt_result << endl;
-
-    map<string, string> map = proguard.collectMapString(
-            "/Users/dev/Documents/Andorid_Work/Work_1/TestAssetManager/app/src/main/cpp/lib_TransformStr/SSConstant.h");
-
-    proguard.writeMapStringToLocalFile(map, "/Users/dev/Documents/GCC_Work/CPP/Crypto_Demo/ZZConstant.h");
+    string documents_root(
+            "/Users/dev/Documents/Andorid_Work/Work_1/TestAssetManager/app/src/main/cpp/lib_TransformStr/");
+    string source("SSConstant.h");
+    source.insert(0, documents_root);
+    map<string, string> map = proguard.collectMapString(source.c_str());
+    string              target("ZZConstant.h");
+    target.insert(0, documents_root);
+    proguard.writeMapStringToLocalFile(map, target.c_str());
 
 
 }

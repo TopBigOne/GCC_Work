@@ -109,6 +109,11 @@ string Proguard::decrypt(const string &encryptedText, const string &key) {
 
 }
 
+/**
+ * 收集头文件里的字符串
+ * @param filePath
+ * @return
+ */
 map<string, string> Proguard::collectMapString(const char *filePath) {
     cout << "collectMapString" << endl;
 
@@ -144,34 +149,42 @@ map<string, string> Proguard::collectMapString(const char *filePath) {
 
 void Proguard::writeMapStringToLocalFile(map<string, string> strMap, const char *filePath) {
     cout << "writeMapStringToLocalFile" << endl;
-
     std::ofstream outfile(filePath);
 
-    if (outfile.is_open()) {
-        outfile << "#pragma once" << std::endl;
-        outfile << std::endl;
-        outfile << "constexpr const char* string1 = \"Hello\";" << std::endl;
-        outfile << "constexpr const char* string2 = \"World\";" << std::endl;
-
-        outfile.close();
-        std::cout << "Strings have been written to ZZConstant.h." << std::endl;
-    } else {
-        std::cout << "Failed to open ZZConstant.h for writing." << std::endl;
+    if (!outfile.is_open()) {
+        std::cerr << "  Failed to open ZZConstant.h for writing." << std::endl;
+        return;
     }
 
-    if(outfile)
-
-
-
-
+    outfile << "//" << std::endl;
+    outfile << "// Created by DEV on 10/30/23." << std::endl;
+    outfile << "//" << std::endl;
+    outfile << "#ifndef TESTASSETMANAGER_ZZCONSTANT_H" << std::endl;
+    outfile << "#define TESTASSETMANAGER_ZZCONSTANT_H" << std::endl;
     for (const auto &item: strMap) {
         std::string name    = item.first;
         std::string content = item.second;
-        cout << "   Name: " << name << ", Content: " << content << endl;
-
-
-
+        outfile << "constexpr const char *" << name << " = \"" << content << "\";" << endl;
     }
+    outfile << std::endl;
+    outfile << std::endl;
+    outfile << std::endl;
+    outfile << "#endif" << std::endl;
+
+    outfile.close();
+    std::cout << "  Strings have been written to ZZConstant.h." << std::endl;
+
+}
+
+void Proguard::testCaseOne(const std::string &plaintext, const std::string &temp_key) {
+    cout << "testCaseOne" << endl;
+    cout << "key              : " << temp_key << endl;
+    cout << "before encrypt   : " << plaintext << endl;
+
+    string resultOne = encrypt(plaintext, temp_key);
+    cout << "after encrypt    : " << resultOne << endl;
+    string resultTwo = decrypt(resultOne, temp_key);
+    cout << "after decrypt    : " << resultTwo << endl;
 
 
 }
