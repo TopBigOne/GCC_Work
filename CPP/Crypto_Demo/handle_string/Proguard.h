@@ -36,12 +36,21 @@ public:
 
     map<string, string> collectMapString(const char *filePath);
 
+    map<string, string> encryptMap(const map<string, string> &srcMap, const string &key);
+
+    map<string, string> decryptMap(const map<string, string> &dstMap, const string &key);
+
+    bool checkInWhiteList(const string &strName);
+
     void writeMapStringToLocalFile(map<string, string> strMap, const char *filePath);
 
 
 public:
     string              &key;
     map<string, string> stringMap;
+    map<string, string> eMap;
+    map<string, string> deMap;
+    vector<string>      whiteList;
 
 
 };

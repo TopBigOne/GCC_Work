@@ -238,12 +238,18 @@ void testProguardString() {
             "/Users/dev/Documents/Andorid_Work/Work_1/TestAssetManager/app/src/main/cpp/lib_TransformStr/");
     string source("SSConstant.h");
     source.insert(0, documents_root);
-    map<string, string> map = proguard.collectMapString(source.c_str());
-    string              target("ZZConstant.h");
+
+    string target("ZZConstant.h");
     target.insert(0, documents_root);
-    proguard.writeMapStringToLocalFile(map, target.c_str());
 
+    // step 1:
+    map<string, string> collectMap = proguard.collectMapString(source.c_str());
 
+    // step 2:
+    map<string, string> encryptMapResult = proguard.encryptMap(collectMap, key_one);
+
+    // step 3:
+    proguard.writeMapStringToLocalFile(encryptMapResult, target.c_str());
 }
 
 int main() {

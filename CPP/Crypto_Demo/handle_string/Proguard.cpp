@@ -7,6 +7,18 @@
 
 Proguard::Proguard(string &key) : key(key) {
 
+
+    whiteList.emplace_back("z_a");
+    whiteList.emplace_back("z_b");
+    whiteList.emplace_back("z_c");
+    whiteList.emplace_back("z_d");
+    whiteList.emplace_back("z_e");
+
+    whiteList.emplace_back("a1");
+    whiteList.emplace_back("b2");
+    whiteList.emplace_back("c3");
+    whiteList.emplace_back("e5");
+
 }
 
 Proguard::~Proguard() {
@@ -178,14 +190,48 @@ void Proguard::writeMapStringToLocalFile(map<string, string> strMap, const char 
 
 void Proguard::testCaseOne(const std::string &plaintext, const std::string &temp_key) {
     cout << "testCaseOne" << endl;
-    cout << "key              : " << temp_key << endl;
-    cout << "before encrypt   : " << plaintext << endl;
+    cout << "   key              : " << temp_key << endl;
+    cout << "   before encrypt   : " << plaintext << endl;
 
     string resultOne = encrypt(plaintext, temp_key);
-    cout << "after encrypt    : " << resultOne << endl;
+    cout << "   after encrypt    : " << resultOne << endl;
     string resultTwo = decrypt(resultOne, temp_key);
-    cout << "after decrypt    : " << resultTwo << endl;
+    cout << "   after decrypt    : " << resultTwo << endl;
+}
+
+bool Proguard::checkInWhiteList(const std::string &strName) {
+    cout << "checkInWhiteList " << endl;
+    auto it = std::find(whiteList.begin(), whiteList.end(), strName);
+    return !(it == whiteList.end());
+}
 
 
+map<string, string> Proguard::encryptMap(const map<string, string> &srcMap, const string &temp_key) {
+    eMap.clear();
+    for (const auto &item: srcMap) {
+        string k = item.first;
+        if (checkInWhiteList(k)) {
+            cout << "    " << k << " is in white list." << endl;
+            eMap[k] = item.second;
+            continue;
+        }
+        string v = encrypt(item.second, temp_key);
+        eMap[k] = v;
+
+    }
+    return eMap;
+}
+
+map<string, string> Proguard::decryptMap(const map<string, string> &dstMap, const string &temp_key) {
+    deMap.clear();
+    for (const auto &item: dstMap) {
+        string k = item.first;
+        if (checkInWhiteList(k)) {
+            continue;
+        }
+        string v = decrypt(item.second, temp_key);
+        deMap[k] = v;
+    }
+    return deMap;
 }
 
