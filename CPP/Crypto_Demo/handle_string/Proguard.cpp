@@ -2,12 +2,16 @@
 // Created by DEV on 10/27/23.
 //
 
+#include <openssl/aes.h>
 #include "Proguard.h"
+#include "openssl/md5.h"
+#include "openssl/sha.h"
+#include "openssl/des.h"
+#include "openssl/rsa.h"
+#include "openssl/pem.h"
 
 
-Proguard::Proguard(string &key) : key(key) {
-
-
+Proguard::Proguard() {
     whiteList.emplace_back("z_a");
     whiteList.emplace_back("z_b");
     whiteList.emplace_back("z_c");
@@ -19,7 +23,34 @@ Proguard::Proguard(string &key) : key(key) {
     whiteList.emplace_back("c3");
     whiteList.emplace_back("e5");
 
+    constexpr const char *z_a = "Zr";
+    constexpr const char *z_b = "H";
+    constexpr const char *z_c = "ar";
+    constexpr const char *z_d = "ns";
+    constexpr const char *z_e = "G";
+
+    constexpr const char *a1 = "J";
+    constexpr const char *b2 = "io";
+    constexpr const char *c3 = "N";
+    constexpr const char *e5 = "Gy";
+
+
+    string bullet;
+    bullet.append(z_a);
+    bullet.append(z_b);
+    bullet.append(z_c);
+    bullet.append(z_d);
+    bullet.append(z_e);
+    bullet.append(z_e);
+    bullet.append(a1);
+    bullet.append(b2);
+    bullet.append(c3);
+    bullet.append(e5);
+    mFlowers.append(bullet);
+
+
 }
+
 
 Proguard::~Proguard() {
 
@@ -111,6 +142,8 @@ string Proguard::decrypt(const string &encryptedText, const string &key) {
     // 清理解密上下文
     EVP_CIPHER_CTX_free(ctx);
 
+    cout << "   outputLength : " << outputLength << endl;
+
     std::string decryptedText(reinterpret_cast<char *>(plaintext), outputLength);
 
     delete[] plaintext;
@@ -173,6 +206,7 @@ void Proguard::writeMapStringToLocalFile(map<string, string> strMap, const char 
     outfile << "//" << std::endl;
     outfile << "#ifndef TESTASSETMANAGER_ZZCONSTANT_H" << std::endl;
     outfile << "#define TESTASSETMANAGER_ZZCONSTANT_H" << std::endl;
+    outfile << std::endl;
     for (const auto &item: strMap) {
         std::string name    = item.first;
         std::string content = item.second;
@@ -200,7 +234,7 @@ void Proguard::testCaseOne(const std::string &plaintext, const std::string &temp
 }
 
 bool Proguard::checkInWhiteList(const std::string &strName) {
-    cout << "checkInWhiteList " << endl;
+    //  cout << "checkInWhiteList " << endl;
     auto it = std::find(whiteList.begin(), whiteList.end(), strName);
     return !(it == whiteList.end());
 }
@@ -211,7 +245,7 @@ map<string, string> Proguard::encryptMap(const map<string, string> &srcMap, cons
     for (const auto &item: srcMap) {
         string k = item.first;
         if (checkInWhiteList(k)) {
-            cout << "    " << k << " is in white list." << endl;
+            // cout << "    " << k << " is in white list." << endl;
             eMap[k] = item.second;
             continue;
         }
@@ -234,4 +268,79 @@ map<string, string> Proguard::decryptMap(const map<string, string> &dstMap, cons
     }
     return deMap;
 }
+
+std::string Proguard::encryptAES_CBC(const string &plaintext, const string &key, const string &iv) {
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), nullptr, reinterpret_cast<const unsigned char *>(key.c_str()),
+                       reinterpret_cast<const unsigned char *>(iv.c_str()));
+
+    int         plaintextLength = plaintext.length();
+    std::string ciphertext;
+    ciphertext.resize(plaintextLength + AES_BLOCK_SIZE);
+
+    int len = 0;
+    EVP_EncryptUpdate(ctx, reinterpret_cast<unsigned char *>(&ciphertext[0]), &len,
+                      reinterpret_cast<const unsigned char *>(plaintext.c_str()), plaintextLength);
+
+    int finalLen = 0;
+    EVP_EncryptFinal_ex(ctx, reinterpret_cast<unsigned char *>(&ciphertext[0]) + len, &finalLen);
+
+    EVP_CIPHER_CTX_free(ctx);
+
+    ciphertext.resize(len + finalLen);
+
+    return hexEncode(ciphertext);
+
+}
+
+std::string Proguard::decryptAES_CBC(const string &ciphertext, const string &key, const string &iv) {
+
+
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), nullptr, reinterpret_cast<const unsigned char *>(key.c_str()),
+                       reinterpret_cast<const unsigned char *>(iv.c_str()));
+
+    int         ciphertextLength = ciphertext.length();
+    std::string plaintext;
+    plaintext.resize(ciphertextLength);
+
+    int len = 0;
+    EVP_DecryptUpdate(ctx, reinterpret_cast<unsigned char *>(&plaintext[0]), &len,
+                      reinterpret_cast<const unsigned char *>(ciphertext.c_str()), ciphertextLength);
+
+    int finalLen = 0;
+    EVP_DecryptFinal_ex(ctx, reinterpret_cast<unsigned char *>(&plaintext[0]) + len, &finalLen);
+
+    EVP_CIPHER_CTX_free(ctx);
+
+    plaintext.resize(len + finalLen);
+
+    return plaintext;
+}
+
+std::string Proguard::hexEncode(const string &input) {
+    std::string       hexString;
+    static const char hexChars[] = "0123456789ABCDEF";
+
+    for (unsigned char c: input) {
+        hexString += hexChars[c >> 4];
+        hexString += hexChars[c & 0xf];
+    }
+
+    return hexString;
+}
+
+std::string Proguard::hexDecode(const string &hexString) {
+    std::string decodedString;
+
+    for (size_t i = 0; i < hexString.length(); i += 2) {
+        std::string byteString = hexString.substr(i, 2);
+        unsigned char byte = static_cast<unsigned char>(std::stoi(byteString, nullptr, 16));
+        decodedString += byte;
+    }
+
+    return decodedString;
+
+}
+
 
