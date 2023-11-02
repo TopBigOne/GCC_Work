@@ -28,17 +28,14 @@ public:
 
     ~Proguard();
 
-    void testCaseOne(const string &plaintext, const string &key);
+    void testCaseOne(const string &plaintext, const string &key, const string &iv);
 
-    string encrypt(const string &plaintext, const string &key);
-
-    string decrypt(const string &plaintext, const string &key);
 
     map<string, string> collectMapString(const char *filePath);
 
-    map<string, string> encryptMap(const map<string, string> &srcMap, const string &key);
+    map<string, string> encryptMap(const map<string, string> &srcMap, const string &m_key, const string &m_iv);
 
-    map<string, string> decryptMap(const map<string, string> &dstMap, const string &key);
+    map<string, string> decryptMap(const map<string, string> &dstMap, const string &m_key, const string &m_iv);
 
     bool checkInWhiteList(const string &strName);
 
@@ -51,7 +48,7 @@ public:
 
     std::string hexEncode(const std::string &input);
 
-    std::string hexDecode(const std::string& hexString);
+    std::string hexDecode(const std::string &hexString);
 
 
 public:

@@ -226,29 +226,6 @@ void testFlowManager() {
 
 void testProguardString() {
     puts("testProguardString");
-    constexpr const char *z_a = "Zr";
-    constexpr const char *z_b = "H";
-    constexpr const char *z_c = "ar";
-    constexpr const char *z_d = "ns";
-    constexpr const char *z_e = "G";
-
-    constexpr const char *a1 = "J";
-    constexpr const char *b2 = "io";
-    constexpr const char *c3 = "N";
-    constexpr const char *e5 = "Gy";
-
-
-    string bullet;
-    bullet.append(z_a);
-    bullet.append(z_b);
-    bullet.append(z_c);
-    bullet.append(z_d);
-    bullet.append(z_e);
-    bullet.append(z_e);
-    bullet.append(a1);
-    bullet.append(b2);
-    bullet.append(c3);
-    bullet.append(e5);
 
 
     string key_one("jing zhang");
@@ -257,7 +234,7 @@ void testProguardString() {
     Proguard proguard;
     string   one("com/jar/MainApplication");
 
-    proguard.testCaseOne(one, bullet);
+    proguard.testCaseOne(one, proguard.mKey, proguard.mIv);
 
 
     string documents_root(
@@ -269,12 +246,12 @@ void testProguardString() {
     target.insert(0, documents_root);
 
 
-    printf("    bullet: %s\n", bullet.c_str());
+
     // step 1:
     map<string, string> collectMap = proguard.collectMapString(source.c_str());
 
     // step 2:
-    map<string, string> encryptMapResult = proguard.encryptMap(collectMap, bullet);
+    map<string, string> encryptMapResult = proguard.encryptMap(collectMap, proguard.mKey, proguard.mIv);
 
     // step 3:
     proguard.writeMapStringToLocalFile(encryptMapResult, target.c_str());
@@ -285,12 +262,13 @@ void testProguardString2() {
     puts("testProguardString2");
     Proguard proguard;
 
-    string raw("com/jar/MainApplication");
+   // string raw("com/jar/MainApplication");
 
-    string encryptResult = proguard.encryptAES_CBC(raw, proguard.mKey, proguard.mIv);
-    cout << "    encryptResult : " << encryptResult << endl;
+   // string encryptResult = proguard.encryptAES_CBC(raw, proguard.mKey, proguard.mIv);
+   // cout << "    encryptResult : " << encryptResult << endl;
 
-    string hexDecode = proguard.hexDecode(encryptResult);
+    constexpr const char *Landroid_content_Context = "8A5C5F936370D74408FD6D5C1575236B3DCE24EB477F19894E91F29D7292677C";
+    string hexDecode = proguard.hexDecode(Landroid_content_Context);
 
     string decryptResult = proguard.decryptAES_CBC(hexDecode, proguard.mKey, proguard.mIv);
     cout << "    decryptResult : " << decryptResult << endl;
@@ -305,7 +283,7 @@ int main() {
     //  test_fopen();
     //  testZlib();
     // testFlowManager();
-    // testProguardString();
+     testProguardString();
     // 测试第二种
     testProguardString2();
 
