@@ -26,6 +26,8 @@ public:
 
     void testTwo();
 
+    void testThree();
+
 
 public:
     map<char *, char *> mMap;

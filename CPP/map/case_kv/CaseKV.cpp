@@ -21,6 +21,8 @@ void CaseKV::testOne() {
     if (result_one == nullptr) {
         cout << "result_one is null" << endl;
     }
+
+    // at ,当key不存在的时候，会crash
     char *result_two = mMap.at("4");
 
 
@@ -45,5 +47,23 @@ void CaseKV::testTwo() {
 
     cout << "map size is : " << mMap.size() << endl;
 
+
+}
+
+void CaseKV::testThree() {
+    map<MyStringKey, const char *> mDeMap;
+
+    int  size = 10;
+    char *m1  = new char[size];
+    strcpy(m1, "qaz");
+
+    char *m2 = new char[size];
+    strcpy(m2, "qaz");
+
+    mDeMap.operator[]({m1}) = "123456";
+    mDeMap.operator[]({m2}) = nullptr;
+
+    cout << "map size is : " << mDeMap.size() << endl;
+    int a = 10;
 
 }

@@ -11,7 +11,8 @@ int main() {
 
 void testOne() {
     CaseKV caseKv;
-//    caseKv.testOne();
-    caseKv.testTwo();
+    caseKv.testOne();
+   // caseKv.testTwo();
+   // caseKv.testThree();
 
 }
