@@ -58,7 +58,10 @@ public:
                             0xD3, 0x32, 0x0C, 0xFA,};
 
 
-    const char *ROOT_DIR             = "/Users/dev/Documents/Andorid_Work/Work_1/TestAssetManager/";
+    // 测试项目
+    // const char *ROOT_DIR             = "/Users/dev/Documents/Andorid_Work/Work_1/TestAssetManager/";
+    // 线上项目
+    const char *ROOT_DIR             = "/Users/dev/Documents/Andorid_Work/Work_1/ccccccc/build/jsb-link/frameworks/runtime-src/proj.android-studio/";
     const char *WORK_DIR             = "lib_asset/work_dir/";
     // dex 文件名称
     const char *SINOHYDROSAURUS_NAME = "sinohydrosaurus.dex";

@@ -282,10 +282,10 @@ int main() {
     // testEvpCase();
     //  test_fopen();
     //  testZlib();
-    // testFlowManager();
-     testProguardString();
+    testFlowManager();
+//     testProguardString();
     // 测试第二种
-    testProguardString2();
+//    testProguardString2();
 
 
     return 0;

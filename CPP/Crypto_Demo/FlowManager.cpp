@@ -101,8 +101,11 @@ void FlowManager::moveEncryptFileToAssert() {
     string asset_dex_Encrypt_Path;
 
 
-    asset_dex_Encrypt_Path.append("/Users/dev/Documents/Andorid_Work/Work_1/TestAssetManager/");
-    asset_dex_Encrypt_Path.append("app/src/main/assets/");
+    asset_dex_Encrypt_Path.append(ROOT_DIR);
+    // test env
+//    asset_dex_Encrypt_Path.append("app/src/main/assets/");
+// release end
+    asset_dex_Encrypt_Path.append("app/assets/");
     asset_dex_Encrypt_Path.append("2_sinohydrosaurus_compress_encrypt");
 
 
