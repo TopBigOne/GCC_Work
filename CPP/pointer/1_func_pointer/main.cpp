@@ -37,6 +37,7 @@ void test_one() {
     int b = 23;
     int (*func_pointer)(int, int);
     int result = -1;
+    // 将max函数赋值 函数指针
     func_pointer = max;
     result = func_pointer(a, b);
     cout << "result one : " << result << endl;

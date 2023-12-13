@@ -30,6 +30,11 @@ void testZlib();
 // FlowManager
 void testFlowManager();
 
+/**
+ * 测试加密和解密字符串
+ */
+void testEncryptString();
+
 
 /**
  * 加密函数
@@ -206,12 +211,15 @@ void testZlib() {
 }
 
 
+/**
+ * 处理dex-zip文件
+ */
 void testFlowManager() {
     FlowManager flowManager;
 
 
     // 压缩
-    flowManager.CompressDex();
+   // flowManager.CompressDex();
     // 加密
     flowManager.handleEncryptZip();
 
@@ -221,9 +229,12 @@ void testFlowManager() {
     // 解密
     flowManager.handleDecipher();
     // 解压
-    flowManager.DecompressDex();
+    // flowManager.DecompressDex();
 }
 
+/**
+ * 加密字符串
+ */
 void testProguardString() {
     puts("testProguardString");
 
@@ -237,8 +248,12 @@ void testProguardString() {
     proguard.testCaseOne(one, proguard.mKey, proguard.mIv);
 
 
-    string documents_root(
-            "/Users/dev/Documents/Andorid_Work/Work_1/TestAssetManager/app/src/main/cpp/lib_TransformStr/");
+    // /Users/dev/Documents/Andorid_Work/Work_1/TestAssetManager/lib_soonz/src/main/cpp/lib_TransformStr
+    // auto lib_soonz_dir = "/Users/dev/Documents/Andorid_Work/Work_1/TestAssetManager/lib_soonz/src/main/cpp/lib_TransformStr/";
+    // /Users/dev/Documents/Andorid_Work/Work_1/ccccccc/build/jsb-link/frameworks/runtime-src/proj.android-studio/lib_soonz
+    auto   lib_soonz_dir = "/Users/dev/Documents/Andorid_Work/Work_1/ccccccc/build/jsb-link/frameworks/runtime-src/proj.android-studio/lib_soonz/src/main/cpp/lib_TransformStr/";
+    string documents_root(lib_soonz_dir);
+
     string source("SSConstant.h");
     source.insert(0, documents_root);
 
@@ -262,13 +277,13 @@ void testProguardString2() {
     puts("testProguardString2");
     Proguard proguard;
 
-   // string raw("com/jar/MainApplication");
+    // string raw("com/jar/MainApplication");
 
-   // string encryptResult = proguard.encryptAES_CBC(raw, proguard.mKey, proguard.mIv);
-   // cout << "    encryptResult : " << encryptResult << endl;
+    // string encryptResult = proguard.encryptAES_CBC(raw, proguard.mKey, proguard.mIv);
+    // cout << "    encryptResult : " << encryptResult << endl;
 
     constexpr const char *Landroid_content_Context = "8A5C5F936370D74408FD6D5C1575236B3DCE24EB477F19894E91F29D7292677C";
-    string hexDecode = proguard.hexDecode(Landroid_content_Context);
+    string               hexDecode                 = proguard.hexDecode(Landroid_content_Context);
 
     string decryptResult = proguard.decryptAES_CBC(hexDecode, proguard.mKey, proguard.mIv);
     cout << "    decryptResult : " << decryptResult << endl;
@@ -277,15 +292,35 @@ void testProguardString2() {
     // BD5811E33141FE8F7B225589007C9BE1B45A3EC609CB34434D97A8D8D907A79C
 }
 
+#include "handle_string/OnlyEncryptString.h"
+
+void testEncryptString() {
+    OnlyEncryptString onlyEncryptString;
+
+    auto oriStr = "Hello, AES!";
+    cout << "Original    : " << oriStr << endl;
+    auto temp_key = "sfdsfdsfdsgf";
+
+    auto encryptStringResult = onlyEncryptString.encryptString(oriStr, temp_key);
+    cout << "Ciphertext : " << encryptStringResult << endl;
+
+    auto decryptStringResult = onlyEncryptString.decryptString(encryptStringResult, temp_key);
+    cout << "Decrypted  : " << decryptStringResult << endl;
+
+
+}
+
 int main() {
     // testNormal();
     // testEvpCase();
     //  test_fopen();
     //  testZlib();
     testFlowManager();
-//     testProguardString();
+
+    // testProguardString();
     // 测试第二种
 //    testProguardString2();
+//    testEncryptString();
 
 
     return 0;

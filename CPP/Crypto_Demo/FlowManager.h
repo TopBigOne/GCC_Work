@@ -61,11 +61,12 @@ public:
     // 测试项目
     // const char *ROOT_DIR             = "/Users/dev/Documents/Andorid_Work/Work_1/TestAssetManager/";
     // 线上项目
-    const char *ROOT_DIR             = "/Users/dev/Documents/Andorid_Work/Work_1/ccccccc/build/jsb-link/frameworks/runtime-src/proj.android-studio/";
-    const char *WORK_DIR             = "lib_soonz/work_dir/";
+    const char *ROOT_DIR = "/Users/dev/Documents/Andorid_Work/Work_1/ccccccc/build/jsb-link/frameworks/runtime-src/proj.android-studio/";
+    const char *WORK_DIR = "lib_soonz/work_dir/";
+
     // dex 文件名称
-    const char *SINOHYDROSAURUS_NAME = "sinohydrosaurus.dex";
-    string     sinohydrosaurusDexPath;
+    const char *ori_zip_file_name = "sinohydrosaurus.zip";
+    string     ori_zip_file_path;
 
     // 压缩包路径
     const char *SINOHYDROSAURUS_COMPRESS_NAME = "result/1_sinohydrosaurus_compress";
@@ -73,15 +74,15 @@ public:
 
 
     // 加密路径
-    const char *SINOHYDROSAURUS_ENCRYPT_NAME = "result/2_sinohydrosaurus_compress_encrypt";
-    string     sinohydrosaurus_Dex_EncryptPath;
+    const char *encrypt_file_name = "result/2_LRZUMyOA_yq";
+    string     encrypt_file_path;
 
     // 解密文件
-    const char *SINOHYDROSAURUS_DECIPHER_COMPRESS_NAME = "result/3_sinohydrosaurus_Decipher_compress";
-    string     sinohydrosaurus_Dex_DecipherPath;
+    const char *SINOHYDROSAURUS_DECIPHER_COMPRESS_NAME = "result/3_sinohydrosaurus_decipher";
+    string     decipher_file_path;
 
     // 解压缩包路径
-    const char *SINOHYDROSAURUS_DECOMPRESS_NAME = "result/4_sinohydrosaurus_decompress.dex";
+    const char *SINOHYDROSAURUS_DECOMPRESS_NAME = "result/4_sinohydrosaurus_decompress";
     string     sinohydrosaurus_Dex_DecompressPath;
 
 

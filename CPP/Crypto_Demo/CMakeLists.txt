@@ -24,6 +24,8 @@ add_executable(Crypto_Demo
         FlowManager.h
         handle_string/Proguard.cpp
         handle_string/Proguard.h
-        ZZConstant.h)
+        ZZConstant.h
+        handle_string/OnlyEncryptString.cpp
+        handle_string/OnlyEncryptString.h)
 
 

@@ -3,4 +3,6 @@ project(1_func_pointer)
 
 set(CMAKE_CXX_STANDARD 11)
 
-add_executable(1_func_pointer main.cpp)
+add_executable(1_func_pointer main.cpp
+        CallbackFunction.cpp
+        CallbackFunction.h)
