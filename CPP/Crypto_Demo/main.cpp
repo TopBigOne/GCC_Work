@@ -219,7 +219,7 @@ void testFlowManager() {
 
 
     // 压缩
-   // flowManager.CompressDex();
+    // flowManager.CompressDex();
     // 加密
     flowManager.handleEncryptZip();
 
@@ -295,17 +295,17 @@ void testProguardString2() {
 #include "handle_string/OnlyEncryptString.h"
 
 void testEncryptString() {
+    puts("testEncryptString");
     OnlyEncryptString onlyEncryptString;
 
     auto oriStr = "Hello, AES!";
-    cout << "Original    : " << oriStr << endl;
-    auto temp_key = "sfdsfdsfdsgf";
+    cout << "   original    text : " << oriStr << endl;
+    auto encryptStringResult = onlyEncryptString.encryptString(oriStr);
+    cout << "   Cipher      text : " << encryptStringResult << endl;
 
-    auto encryptStringResult = onlyEncryptString.encryptString(oriStr, temp_key);
-    cout << "Ciphertext : " << encryptStringResult << endl;
-
-    auto decryptStringResult = onlyEncryptString.decryptString(encryptStringResult, temp_key);
-    cout << "Decrypted  : " << decryptStringResult << endl;
+    // encryptStringResult = "B3E8054FF067384DAD60123FFA5780C5";
+    auto decryptStringResult = onlyEncryptString.decryptString(encryptStringResult);
+    cout << "   Decrypted   text : " << decryptStringResult << endl;
 
 
 }
@@ -315,12 +315,12 @@ int main() {
     // testEvpCase();
     //  test_fopen();
     //  testZlib();
-    testFlowManager();
+    // testFlowManager();
 
     // testProguardString();
     // 测试第二种
 //    testProguardString2();
-//    testEncryptString();
+    testEncryptString();
 
 
     return 0;

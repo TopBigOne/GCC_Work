@@ -14,6 +14,14 @@
 #include <openssl/err.h>
 
 
+
+OnlyEncryptString::OnlyEncryptString() {
+
+    mFlowerK.append("4b57d4a9a3d7c2e135f6b4c7ec8b0d8c5a3e1f7d6c4a2b0d8f6b4c7e1f3d5b2c");
+    mFlowerI.append("a1b2c3d4e5f6g7h8");
+}
+
+
 string OnlyEncryptString::generateRandomKey(size_t keyLength) {
     unsigned char buffer[keyLength];
     RAND_bytes(buffer, keyLength);
@@ -22,166 +30,98 @@ string OnlyEncryptString::generateRandomKey(size_t keyLength) {
 
 }
 
-std::string base64_decode(const std::string &input) {
-    BIO *bio, *b64;
-
-    b64 = BIO_new(BIO_f_base64());
-    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
-    bio = BIO_new_mem_buf(input.c_str(), static_cast<int>(input.length()));
-    bio = BIO_push(b64, bio);
-
-    char *buffer = new char[input.length()];
-    BIO_read(bio, buffer, static_cast<int>(input.length()));
-    BIO_free_all(bio);
-
-    std::string result(buffer, input.length());
-    delete[] buffer;
-
-    return result;
-}
-
-std::string base64_encode(const unsigned char *input, size_t length) {
-    BIO *bio, *b64;
-    BUF_MEM *bufferPtr;
-
-    b64 = BIO_new(BIO_f_base64());
-    BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
-    bio = BIO_new(BIO_s_mem());
-    bio = BIO_push(b64, bio);
-
-    BIO_write(bio, input, static_cast<int>(length));
-    BIO_flush(bio);
-    BIO_get_mem_ptr(bio, &bufferPtr);
-
-    std::string result(bufferPtr->data, bufferPtr->length);
-
-    BIO_free_all(bio);
-
-    return result;
-}
 
 
+string OnlyEncryptString::encryptString(const string &plaintext) {
 
-string OnlyEncryptString::encryptString(const string &message, const string &secret_key) {
-    const EVP_CIPHER *cipher = EVP_aes_256_cbc();
-    const int keyLength = EVP_CIPHER_key_length(cipher);
-    const int ivLength = EVP_CIPHER_iv_length(cipher);
-
-    // Ensure secret_key is the correct length
-    unsigned char key[keyLength];
-    memset(key, 0, keyLength);
-    memcpy(key, secret_key.c_str(), std::min<int>(secret_key.length(), keyLength));
-
-    // Generate a random IV
-    unsigned char iv[ivLength];
-    RAND_bytes(iv, ivLength);
+    //  LOGD(__func__)
+    //  LOGI("  plaintext : %s", plaintext.c_str())
+    const char *key = mFlowerK.c_str();
+    const char *iv  = mFlowerI.c_str();
 
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), nullptr, reinterpret_cast<const unsigned char *>(key),
+                       reinterpret_cast<const unsigned char *>(iv));
 
-    if (EVP_EncryptInit_ex(ctx, cipher, nullptr, key, iv) != 1) {
-        // Handle error
-        std::cerr << "EVP_EncryptInit_ex failed." << std::endl;
-        return "";
-    }
+    int         plaintextLength = plaintext.length();
+    std::string ciphertext;
+    int         aes_block_size  = 16;
+    ciphertext.resize(plaintextLength + aes_block_size);
 
-    int messageLength = static_cast<int>(message.length());
-    int encryptedLength = messageLength + EVP_CIPHER_block_size(cipher);
-    unsigned char *encryptedText = new unsigned char[encryptedLength];
+    int len = 0;
+    EVP_EncryptUpdate(ctx, reinterpret_cast<unsigned char *>(&ciphertext[0]), &len,
+                      reinterpret_cast<const unsigned char *>(plaintext.c_str()), plaintextLength);
 
-    if (EVP_EncryptUpdate(ctx, encryptedText, &encryptedLength, reinterpret_cast<const unsigned char *>(message.c_str()), messageLength) != 1) {
-        // Handle error
-        std::cerr << "EVP_EncryptUpdate failed." << std::endl;
-        delete[] encryptedText;
-        return "";
-    }
-
-    int finalLength;
-    if (EVP_EncryptFinal_ex(ctx, encryptedText + encryptedLength, &finalLength) != 1) {
-        // Handle error
-        std::cerr << "EVP_EncryptFinal_ex failed." << std::endl;
-        delete[] encryptedText;
-        return "";
-    }
+    int finalLen = 0;
+    EVP_EncryptFinal_ex(ctx, reinterpret_cast<unsigned char *>(&ciphertext[0]) + len, &finalLen);
 
     EVP_CIPHER_CTX_free(ctx);
 
-    encryptedLength += finalLength;
+    ciphertext.resize(len + finalLen);
 
-    // Concatenate IV and encrypted text, then base64 encode the result
-    std::string result = base64_encode(iv, ivLength) + base64_encode(encryptedText, encryptedLength);
-
-    delete[] encryptedText;
-
-    return result;
+    return hhheeeE(ciphertext);
 }
 
 
 
-string OnlyEncryptString::decryptString (const string &ciphertext, const string &secret_key) {
-    const EVP_CIPHER *cipher = EVP_aes_256_cbc();
-    const int keyLength = EVP_CIPHER_key_length(cipher);
-    const int ivLength = EVP_CIPHER_iv_length(cipher);
+string OnlyEncryptString::decryptString (const string &ciphertext) {
+    const char *key = mFlowerK.c_str();
+    const char *iv  = mFlowerI.c_str();
 
-    // Ensure secret_key is the correct length
-    unsigned char key[keyLength];
-    memset(key, 0, keyLength);
-    memcpy(key, secret_key.c_str(), std::min<int>(secret_key.length(), keyLength));
+    std::string hexDecodeString = hhheeexxxxDe(ciphertext.c_str());
 
-    // Base64 decode the ciphertext
-    std::string decodedCiphertext = base64_decode(ciphertext);
-
-    // Extract IV from the decoded ciphertext
-    unsigned char iv[ivLength];
-    memcpy(iv, decodedCiphertext.c_str(), ivLength);
-
-    // Initialize decryption context
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), nullptr, reinterpret_cast<const unsigned char *>(key),
+                       reinterpret_cast<const unsigned char *>(iv));
 
-    if (EVP_DecryptInit_ex(ctx, cipher, nullptr, key, iv) != 1) {
-        // Handle error
-        std::cerr << "EVP_DecryptInit_ex failed." << std::endl;
-        return "";
-    }
+    int         ciphertextLength = static_cast<int>(hexDecodeString.length());
+    std::string plaintext;
+    plaintext.resize(ciphertextLength);
 
-    int decryptedLength;
-    int ciphertextLength = static_cast<int>(decodedCiphertext.length()) - ivLength;
-    unsigned char *decryptedText = new unsigned char[ciphertextLength];
+    int len = 0;
+    EVP_DecryptUpdate(ctx, reinterpret_cast<unsigned char *>(&plaintext[0]), &len,
+                      reinterpret_cast<const unsigned char *>(hexDecodeString.c_str()), ciphertextLength);
 
-
-
-    if (EVP_DecryptUpdate(ctx, decryptedText, &decryptedLength, reinterpret_cast<const unsigned char *>(decodedCiphertext.c_str() + ivLength), ciphertextLength) != 1) {
-        // Handle error
-        std::cerr << "EVP_DecryptUpdate failed." << std::endl;
-        delete[] decryptedText;
-        return "";
-    }
-
-    int finalLength;
-    if (EVP_DecryptFinal_ex(ctx, decryptedText + decryptedLength, &finalLength) <= 0) {
-        // Check for decryption failure or need more data
-        int err = ERR_get_error();
-        if (err != 0) {
-            // Print OpenSSL error
-            char errBuff[256];
-            ERR_error_string_n(err, errBuff, sizeof(errBuff));
-            std::cerr << "EVP_DecryptFinal_ex failed: " << errBuff << std::endl;
-        }
-
-        delete[] decryptedText;
-        return "";
-    }
+    int finalLen = 0;
+    EVP_DecryptFinal_ex(ctx, reinterpret_cast<unsigned char *>(&plaintext[0]) + len, &finalLen);
 
     EVP_CIPHER_CTX_free(ctx);
 
-    decryptedLength += finalLength;
+    plaintext.resize(len + finalLen);
 
-    // Convert decrypted text to string
-    std::string result(reinterpret_cast<char *>(decryptedText), decryptedLength);
+    // todo 注意指针释放
+    char *vChar = new char[plaintext.length() + 1];
+    strcpy(vChar, plaintext.c_str());
+    delete[] vChar;
+    // LOGI("  de plaintext : %s", plaintext.c_str())
+    return plaintext;
 
-    delete[] decryptedText;
+}
 
-    return result;
+string OnlyEncryptString::hhheeexxxxDe(const char *hexString) {
+    string tempStr(hexString);
+    std::string decodedString;
+    for (size_t i = 0; i < tempStr.length(); i += 2) {
+        std::string   byteString = tempStr.substr(i, 2);
+        unsigned char byte       = static_cast<unsigned char>(std::stoi(byteString, nullptr, 16));
+        decodedString += byte;
+    }
 
+    return decodedString;
 
 
 }
+
+string OnlyEncryptString::hhheeeE(const string &input) {
+    std::string       hexString;
+    static const char hexChars[] = "0123456789ABCDEF";
+
+    for (unsigned char c: input) {
+        hexString += hexChars[c >> 4];
+        hexString += hexChars[c & 0xf];
+    }
+
+    return hexString;
+}
+
+

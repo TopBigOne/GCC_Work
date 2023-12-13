@@ -16,10 +16,22 @@ using namespace std;
 class OnlyEncryptString {
 
 public:
-    string encryptString(const std::string &plaintext, const std::string &key);
+    OnlyEncryptString();
+    string encryptString(const std::string &plaintext);
 
-    string decryptString(const std::string &plaintext, const std::string &key);
+    string decryptString(const std::string &plaintext);
+
     string generateRandomKey(size_t keyLength);
+
+    string hhheeexxxxDe(const char *hexString);
+
+    string hhheeeE(const std::string &hexString);
+
+
+
+private:
+    string mFlowerK;
+    string mFlowerI;
 
 
 };
