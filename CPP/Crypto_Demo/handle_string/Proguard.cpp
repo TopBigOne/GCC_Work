@@ -120,12 +120,22 @@ void Proguard::writeMapStringToLocalFile(map<string, string> strMap, const char 
     outfile << "#ifndef TESTASSETMANAGER_ZZCONSTANT_H" << std::endl;
     outfile << "#define TESTASSETMANAGER_ZZCONSTANT_H" << std::endl;
     outfile << std::endl;
+    outfile << std::endl;
+    outfile << "#include \"StringCompileConfig.h\"" << std::endl;
+    outfile << std::endl;
+    outfile << std::endl;
+    outfile << "#ifndef  USE_DEBUG_STRING_VERSION" << std::endl;
+
+    outfile << std::endl;
     for (const auto &item: strMap) {
         std::string name    = item.first;
         std::string content = item.second;
         outfile << "constexpr const char *" << name << " = \"" << content << "\";" << endl;
     }
     outfile << std::endl;
+    outfile << std::endl;
+    outfile << std::endl;
+    outfile << "#endif" << std::endl;
     outfile << std::endl;
     outfile << std::endl;
     outfile << "#endif" << std::endl;

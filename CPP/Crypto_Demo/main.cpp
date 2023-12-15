@@ -233,7 +233,7 @@ void testFlowManager() {
 }
 
 /**
- * 加密字符串
+ * 加密字符串 头文件
  */
 void testProguardString() {
     puts("testProguardString");
@@ -317,12 +317,12 @@ int main() {
     // testEvpCase();
     //  test_fopen();
     //  testZlib();
-    testFlowManager();
+//    testFlowManager();
 
-    // testProguardString();
+     testProguardString();
     // 测试第二种
     // testProguardString2();
-    // testEncryptString();
+//     testEncryptString();
 
 
     return 0;
