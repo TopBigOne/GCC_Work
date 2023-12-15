@@ -33,6 +33,8 @@ private:
     string mFlowerK;
     string mFlowerI;
 
+    unsigned char key_key[32] ;
+
 
 };
 

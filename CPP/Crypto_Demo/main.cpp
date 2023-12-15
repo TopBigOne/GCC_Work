@@ -245,7 +245,8 @@ void testProguardString() {
     Proguard proguard;
     string   one("com/jar/MainApplication");
 
-    proguard.testCaseOne(one, proguard.mKey, proguard.mIv);
+    std::string keyString(reinterpret_cast<const char *>(proguard.mKey), sizeof(proguard.mKey));
+    proguard.testCaseOne(one, keyString, proguard.mIv);
 
 
     // /Users/dev/Documents/Andorid_Work/Work_1/TestAssetManager/lib_soonz/src/main/cpp/lib_TransformStr
@@ -266,7 +267,7 @@ void testProguardString() {
     map<string, string> collectMap = proguard.collectMapString(source.c_str());
 
     // step 2:
-    map<string, string> encryptMapResult = proguard.encryptMap(collectMap, proguard.mKey, proguard.mIv);
+    map<string, string> encryptMapResult = proguard.encryptMap(collectMap, keyString, proguard.mIv);
 
     // step 3:
     proguard.writeMapStringToLocalFile(encryptMapResult, target.c_str());
@@ -282,10 +283,10 @@ void testProguardString2() {
     // string encryptResult = proguard.encryptAES_CBC(raw, proguard.mKey, proguard.mIv);
     // cout << "    encryptResult : " << encryptResult << endl;
 
-    constexpr const char *Landroid_content_Context = "8A5C5F936370D74408FD6D5C1575236B3DCE24EB477F19894E91F29D7292677C";
+    constexpr const char *Landroid_content_Context = "48ce4bea43143cde36eea72c99969379";
     string               hexDecode                 = proguard.hexDecode(Landroid_content_Context);
-
-    string decryptResult = proguard.decryptAES_CBC(hexDecode, proguard.mKey, proguard.mIv);
+    std::string          keyString(reinterpret_cast<const char *>(proguard.mKey), sizeof(proguard.mKey));
+    string               decryptResult             = proguard.decryptAES_CBC(hexDecode, keyString, proguard.mIv);
     cout << "    decryptResult : " << decryptResult << endl;
 
     // BD5811E33141FE8F7B225589007C9BE1B45A3EC609CB34434D97A8D8D907A79C
@@ -298,12 +299,13 @@ void testEncryptString() {
     puts("testEncryptString");
     OnlyEncryptString onlyEncryptString;
 
-    auto oriStr = "Hello, AES!";
+    auto oriStr = "Me1ONVU";
     cout << "   original    text : " << oriStr << endl;
     auto encryptStringResult = onlyEncryptString.encryptString(oriStr);
+
+    encryptStringResult = "FF84F9B02F97B73F0622E528C01EE986";
     cout << "   Cipher      text : " << encryptStringResult << endl;
 
-    // encryptStringResult = "B3E8054FF067384DAD60123FFA5780C5";
     auto decryptStringResult = onlyEncryptString.decryptString(encryptStringResult);
     cout << "   Decrypted   text : " << decryptStringResult << endl;
 
@@ -315,12 +317,12 @@ int main() {
     // testEvpCase();
     //  test_fopen();
     //  testZlib();
-    // testFlowManager();
+    testFlowManager();
 
     // testProguardString();
     // 测试第二种
-//    testProguardString2();
-    testEncryptString();
+    // testProguardString2();
+    // testEncryptString();
 
 
     return 0;

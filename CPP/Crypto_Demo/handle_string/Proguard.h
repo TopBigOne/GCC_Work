@@ -59,7 +59,10 @@ public:
     vector<string>      whiteList;
 
 
-    const char *mKey = "4b57d4a9a3d7c2e135f6b4c7ec8b0d8c5a3e1f7d6c4a2b0d8f6b4c7e1f3d5b2c";
+    unsigned char mKey[32] ;
+
+
+    // const char *mKey = "4b57d4a9a3d7c2e135f6b4c7ec8b0d8c5a3e1f7d6c4a2b0d8f6b4c7e1f3d5b2c";
 
     const char *mIv = "a1b2c3d4e5f6g7h8";
 
