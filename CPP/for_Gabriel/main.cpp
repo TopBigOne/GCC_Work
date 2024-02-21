@@ -15,7 +15,8 @@ using namespace std;
 // 加密密钥，需要保密
 const static unsigned char key[] = "0123456789abcdef";
 
-string      PROJECT_ROOT("/Users/dev/Documents/GCC_Work/CPP/Crypto_Demo/");
+auto        rootDir          = "/Users/dev/Documents/GCC_Work/CPP/for_Gabriel/";
+string      PROJECT_ROOT(rootDir);
 std::string inputFilePath    = PROJECT_ROOT.append("pratice_openssl/ttt.zip");
 std::string encryptedFile    = PROJECT_ROOT.append("/pratice_openssl/for_google");
 std::string decryptedFile    = PROJECT_ROOT.append("pratice_openssl/ttt2.zip");

@@ -1,9 +1,8 @@
 cmake_minimum_required(VERSION 3.26)
-project(for_yongzen)
+project(for_Gabriel)
 
 set(CMAKE_CXX_STANDARD 11)
-#set(OPENSSL_HEAD "/opt/homebrew/Cellar/openssl@3/3.1.4")
-set(OPENSSL_HEAD "/opt/homebrew/Cellar/openssl@3/3.2.0_1")
+set(OPENSSL_HEAD "/opt/homebrew/Cellar/openssl@3/3.1.4")
 
 include_directories("${OPENSSL_HEAD}/include")
 

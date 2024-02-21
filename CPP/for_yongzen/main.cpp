@@ -238,22 +238,14 @@ void testFlowManager() {
 /**
  * 加密字符串 头文件
  */
-void testProguardString() {
-    puts("testProguardString");
-
-
-    string key_one("jing zhang");
-
+void realProguardString() {
+    puts("realProguardString");
 
     Proguard proguard;
-    string   one("com/jar/MainApplication");
-
     std::string keyString(reinterpret_cast<const char *>(proguard.mKey), sizeof(proguard.mKey));
-    proguard.testCaseOne(one, keyString, proguard.mIv);
 
 
-
-    auto   lib_soonz_dir = "/Users/dev/Documents/Andorid_Work/Work_1/ccccccc/build/jsb-link/frameworks/runtime-src/proj.android-studio/lib_soonz/src/main/cpp/lib_TransformStr/";
+    auto   lib_soonz_dir = "/Users/dev/Documents/Andorid_Work/Work_6/client_elim/buildAndroid/jsb-link/frameworks/runtime-src/proj.android-studio/lib_yungzen/src/main/cpp/lib_TransformStr/";
     string documents_root(lib_soonz_dir);
 
     string source("SSConstant.h");
@@ -335,10 +327,13 @@ int main() {
     //  testZlib();
     testFlowManager();
 
-//     testProguardString();
+//    realProguardString();
     // 测试第二种
 //     testProguardString2();
 //    testEncryptString();
+
+
+
 
 
     return 0;
