@@ -36,7 +36,7 @@ void get_shared_ptr() {
     std::cout << "pointer2.use_count() = " << pointer2.use_count() << std::endl;  // pointer2 已 reset; 0
     std::cout << "pointer3.use_count() = " << pointer3.use_count() << std::endl; // 2
 
-    int *temp = new int(100);
+    int *temp = new int(99999);
     pointer3.reset(temp);//  因为temp 已近被 智能指针 wrap，不需要手动delete
     std::cout << "now the pointer3 value is : " << *pointer3 << std::endl;  // 100
     std::cout << "now the b_pointer value  is  : " << *pointer << std::endl;  // 10
