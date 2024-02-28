@@ -45,7 +45,7 @@ std::unique_ptr<T> make_unique( Args&& ...args ) {
 struct Foo {
     Foo() { std::cout << "Foo::Foo" << std::endl; }
     ~Foo() { std::cout << "Foo::~Foo" << std::endl; }
-    void foo() { std::cout << "Foo::foo" << std::endl; }
+    void foo() { std::cout << "Foo::fun_1" << std::endl; }
 };
 
 void f(const Foo &) {
@@ -55,22 +55,22 @@ void f(const Foo &) {
 int main() {
     std::unique_ptr<Foo> p1(std::make_unique<Foo>());
     // p1 不空, 输出
-    if (p1) p1->foo();
+    if (p1) p1->fun_1();
     {
         std::unique_ptr<Foo> p2(std::move(p1));
         // p2 不空, 输出
         f(*p2);
         // p2 不空, 输出
-        if(p2) p2->foo();
+        if(p2) p2->fun_1();
         // p1 为空, 无输出
-        if(p1) p1->foo();
+        if(p1) p1->fun_1();
         p1 = std::move(p2);
         // p2 为空, 无输出
-        if(p2) p2->foo();
+        if(p2) p2->fun_1();
         std::cout << "p2 被销毁" << std::endl;
     }
     // p1 不空, 输出
-    if (p1) p1->foo();
+    if (p1) p1->fun_1();
     // Foo 的实例会在离开作用域时被销毁
 }
 
