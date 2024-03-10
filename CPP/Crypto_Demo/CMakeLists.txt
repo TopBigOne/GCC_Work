@@ -3,7 +3,7 @@ project(Crypto_Demo)
 
 set(CMAKE_CXX_STANDARD 11)
 
-set(OPENSSL_HEAD "/opt/homebrew/Cellar/openssl@3/3.1.4")
+set(OPENSSL_HEAD "/opt/homebrew/Cellar/openssl@3/3.2.0_1")
 
 include_directories("${OPENSSL_HEAD}/include")
 
