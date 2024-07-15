@@ -12,13 +12,17 @@ void test();
 
 void test2();
 
+
 void test3();
+
+void test4();
 
 
 int main() {
     test();
     test2();
     test3();
+    test4();
     return 0;
 }
 
@@ -58,6 +62,7 @@ void test() {
 
 
 void test2() {
+    puts(__FUNCTION__);
     char *temp = calloc(1, 20);
 
     Person person;
@@ -69,9 +74,26 @@ void test2() {
 }
 
 void test3() {
+    puts(__FUNCTION__);
     char str[] = {0x00, 0x05, 'H', 'e', 'l', 'l', 'o'};
     // 从开头的两个字节中读取字符串的长度信息
     int  len   = (int) str[0] << 8 | str[1];
-    printf("test3 : len is %d", len);
+    printf("    len is %d\n", len);
+}
+
+void test4() {
+    puts(__FUNCTION__);
+
+    int a  = 18;
+    int *b = &a;
+
+    printf("    *b: %d\n", *b);
+
+    const int *c = &a;
+    int       d  = 19;
+    c = &d;
+    printf("    *c: %d\n", *c);
+
+
 }
 
