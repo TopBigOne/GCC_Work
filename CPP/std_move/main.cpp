@@ -1,24 +1,74 @@
 #include <iostream>
+#include <string>
+#include <utility>  // for std::move
 #include "MyObject.h"
+#include "MoveDemo.h"
 
-void testOne();
+using namespace std;
 
-void testTwo();
+void test1();
+void test2();
+void test3();
+void test4();
+void runOriginalTests();
+
+void testCore();
 
 int main() {
-    testTwo();
+    testCore();
 
-    // testOne();
     return 0;
 }
 
-MyObject obj1;
+void testCore() {
+    cout << "=== C++ std::move 学习项目 ===" << endl;
+    cout << "本项目基于 README.md 中的理论知识，提供完整的可运行演示" << endl;
+    cout << "\n选择演示模式:" << endl;
+    cout << "1. 完整交互式演示 (基于README.md的所有概念)" << endl;
+    cout << "2. 原有测试函数演示 (test1-test4)" << endl;
+    cout << "请输入选择 (1, 2): ";
 
-void testOne() {
+    char choice;
+    cin >> choice;
+    cin.ignore(); // 清除输入缓冲区
+
+    switch (choice) {
+        case '1':
+            // 运行完整的演示程序
+            MoveShowcase::runCompleteDemo();
+            break;
+
+        case '2':
+            // 运行原有的测试函数
+            runOriginalTests();
+            break;
+        default:
+            cout << "无效选择，运行原有测试..." << endl;
+            runOriginalTests();
+            break;
+    }
+
+}
+
+void runOriginalTests() {
+    cout << "\n=== 原有测试函数演示 ===" << endl;
+
+    cout << "\n--- test1: 基本移动构造 ---" << endl;
+    test1();
+
+    cout << "\n--- test2: 字符串和基本类型移动 ---" << endl;
+    test2();
+
+    cout << "\n--- test3: 移动构造详细演示 ---" << endl;
+    test3();
+
+    cout << "\n--- test4: 移动赋值演示 ---" << endl;
+    test4();
+}
+
+void test1() {
+    MyObject obj1;
     // step 1：创建一个MyObject对象
-
-
-    string name1("筱雅");
     obj1.setName("筱雅");
     obj1.addNameList();
     obj1.printObj();
@@ -32,31 +82,56 @@ void testOne() {
     obj1.printObj();
     cout << "看看obj2的值：" << endl;
     obj2.printObj();
-
-
 }
 
-void testTwo() {
-    double a = 20.5;
-    double b = 36;
-    double c = 23.5;
-    double d = 34.2;
-    // 实际107
-    double r = a + b + c + d;
-    cout << "粗铜：" << r << " kg" << endl;
-    double result = r * 63;
-    cout << "粗铜--- result:：" << r * 63 << " 元" << endl;
-    // 9 公斤的细线，
-    cout << "RRRR---result2 :9*40 " << 360 << endl;
-    cout << "RRRR---result2 :：" << r * 63 + 360 << endl;
+void test2() {
+    std::cout << "test2" << std::endl;
+    std::string a = "hello world";
+    //  这里是移动，不是拷贝！
+    // b: hello world
+    std::string b = std::move(a);
+    //  a: （内容未定义，通常为空字符串）
+    std::cout << "a: " << a << std::endl;
+    std::cout << "b: " << b << std::endl;
+    int d = std::move(2);
+    std::cout << "d: " << d << std::endl;
+}
 
-    cout << "-----------------------------" << endl;
-    cout << "-----------------------------" << endl;
-    cout << "-----------------------------" << endl;
-    double real_1 = 108 * 70;
-    double real_3 = 7.5 * 70 - 360;
-    cout << "real_1--- : 108 * 70       :" << real_1 << endl;
-    cout << "real_2--- : real_1 -result :" << real_1 - result << endl;
-    cout << "real_3--- : 细铜线      7.5 * 70 - 360  :" << real_3 << endl;
-    cout << "real_4--- : all  real_2+ real_3 :" << real_1 - result + real_3 << endl;
+void test3() {
+    std::cout << "测试移动构造" << std::endl;
+    MyObject obj1;
+    obj1.setName("123");
+    obj1.addNameList();
+    std::cout << "打印obj1" << std::endl;
+    obj1.printObj();
+    auto obj2 = std::move(obj1);
+    std::cout << "打印obj2" << std::endl;
+    obj2.printObj();
+    std::cout << "打印obj1" << std::endl;
+    obj1.printObj();
+}
+
+void test4() {
+    std::cout << "测试移动赋值" << std::endl;
+    MyObject obj1;
+    obj1.setName("234");
+    obj1.addNameList();
+    std::cout << "打印obj1" << std::endl;
+    obj1.printObj();
+
+    MyObject obj2;
+    obj2.setName("郭源潮");
+    obj2.addNameList();
+    std::cout << "打印obj2" << std::endl;
+    obj2.printObj();
+    std::cout << "开始赋值" << std::endl;
+    obj1 = std::move(obj2);
+    std::cout << "赋值结果" << std::endl;
+
+    std::cout << "打印obj1" << std::endl;
+    obj1.printObj();
+
+    // NOTE: obj2 里的变量现在已经变成空的了
+    std::cout << "打印obj2" << std::endl;
+    obj2.printObj();
 }
