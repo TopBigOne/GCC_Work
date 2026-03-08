@@ -2,42 +2,33 @@
 
 using namespace std;
 
-
-/**
- * 最简单的lamda
- */
-auto ifn = []() {
-    cout << "first day lambda" << endl;
-};
-
-
-auto                     ifnParam = [](int val) {
-    cout << "val : " << val << endl;
-};
-
-// <void(int)> 表示该函数对象接受一个整数参数并返回 void。
-std::function<void(int)> ifnFunc  = [](int val) {
-    cout << "val : " << val << endl;
-};
-
-// std::function<int(int)>: 这是一个函数对象类型模板，用于定义一个可调用对象的类型。在这里，<int(int)> 表示该函数对象接受一个整数参数并返回一个整数
-std::function<int(int)> ifnFunc2  = [](int val) {
-    cout << "val : " << val << endl;
-    return val+20;
-};
-
+#include "BaseLambda.h"
+#include "CaptureList.h"
 
 
 void test() {
+    BaseLambda baseLambda;
+    baseLambda.test_one();
+}
 
-    ifn();
-    ifnParam(10);
-    ifnFunc(20);
-    ifnFunc2(21);
+void testCaptureList();
+
+void testCaptureList() {
+    CaptureList captureList;
+    captureList.test_one();
+    captureList.test_two();
+    captureList.test_three();
+    captureList.test_Four();
+    captureList.test_Five();
+    captureList.test_Six();
+    captureList.test_Seven();
+    captureList.test_eight();
+    captureList.test_nine();
 
 }
 
 int main() {
     test();
+    testCaptureList();
     return 0;
 }
