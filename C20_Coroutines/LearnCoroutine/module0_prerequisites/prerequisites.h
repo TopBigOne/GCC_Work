@@ -48,7 +48,7 @@ inline void demo_lambda() {
     int result = [&x]() { return x * 3; }();
 
     by_ref();
-    std::cout << "  x after by_ref()     = " << x << "\n";         // 15
+    std::cout << "  x after by_ref()     = " << x << "\n";           // 15
     std::cout << "  by_value()           = " << by_value() << "\n"; // 20（x=10的快照）
     std::cout << "  mutable_copy()       = " << mutable_copy() << "\n"; // 110（快照x=10，副本+100）
     std::cout << "  x after mutable_copy = " << x << "\n";         // 15（原 x 不变）
@@ -113,8 +113,7 @@ struct Handle {
     }
 
     // 移动构造：转移所有权，source 标记为无效
-    Handle(Handle&& o) noexcept
-        : name_(std::move(o.name_)), valid_(o.valid_)
+    Handle(Handle&& o) noexcept: name_(std::move(o.name_)), valid_(o.valid_)
     {
         o.valid_ = false;
         std::cout << "  [Handle] 移动构造 → " << name_ << "\n";
@@ -260,6 +259,9 @@ inline void demo_raii() {
     // shared_ptr：引用计数，最后一个 owner 析构时 delete
     std::cout << "  ---\n";
     {
+        // {
+        //       块作用域
+        // }
         auto sp1 = std::make_shared<NetworkConn>("remote:9090");
         {
             auto sp2 = sp1;  // 引用计数 +1
@@ -363,19 +365,22 @@ inline void demo_if_constexpr() {
     std::cout << "  describe(nullptr)  = " << describe(nullptr) << "\n";
 
     // 模拟 Task<T> 的 promise 在 void/非void 上的编译期分支
-    PromiseLike<int>  p1; p1.set_result(99);
-    // PromiseLike<void> p2; p2.set_result(???);
+    PromiseLike<int>  p1;
+    p1.set_result(99);
+
+    // PromiseLike<void> p2;
+    // p2.set_result(???);
     // 因为 void 无法传参，实际要结合特化，这里仅展示 if constexpr 的用途
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// P8: std::variant (C++17) — 类型安全的联合体
+// P8: std::variant (C++17) — 类型 安全的联合体
 // Task<T> 的 promise_type 用 variant<monostate, T, exception_ptr> 存结果
 // ═══════════════════════════════════════════════════════════════════════════
 inline void demo_variant() {
     std::cout << "\n── P8: std::variant (C++17) ──\n";
 
-    // 三态：未完成 / 有值 / 有异常（Task<T> 的 result_ 字段就是这个）
+    // 三态：【未完成】 / 【有值】 / 【有异常】（Task<T> 的 result_ 字段就是这个）
     using TaskResult = std::variant<std::monostate, int, std::exception_ptr>;
 
     // 状态 1：未完成

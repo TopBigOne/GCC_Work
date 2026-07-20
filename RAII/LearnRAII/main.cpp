@@ -20,7 +20,7 @@
 static void print_separator(int module) {
     std::cout << "\n";
     std::cout << "╔══════════════════════════════════════════╗\n";
-    std::cout << "║           RAII 模块 " << module << " 演示                 ║\n";
+    std::cout << "║           RAII 模块 " << module << " 演示                ║\n";
     std::cout << "╚══════════════════════════════════════════╝\n";
 }
 
