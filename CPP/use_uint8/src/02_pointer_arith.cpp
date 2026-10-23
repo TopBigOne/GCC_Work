@@ -13,7 +13,7 @@ struct Point3D {
 };
 
 void demo_02_pointer_arith() {
-    printf("========== 1. void* 必须转成 uint8_t* 才能做字节偏移 ==========\n");
+    printf("========== 1. void* 必须转成 uint8_t* 才能做 字节偏移 ✅ ==========\n");
 
     void* raw = std::malloc(64);
     // void* 不能直接 + 1（编译器不知道每个元素多大，做算术是非标准扩展）
@@ -21,8 +21,8 @@ void demo_02_pointer_arith() {
 
     // 现在可以按字节精确偏移
     uint8_t* p10 = bytes + 10;   // 正好偏移 10 个字节
-    printf("bytes 地址     = %p\n", (void*)bytes);
-    printf("bytes+10 地址  = %p  (正好差 10)\n", (void*)p10);
+    printf("bytes 地址     = %p\n", (void*)bytes);          // 0x6000029881c0
+    printf("bytes+10 地址  = %p  (正好差 10)\n", (void*)p10);// 0x6000029881ca (正好差 10)
 
     std::free(raw);
 
@@ -39,16 +39,18 @@ void demo_02_pointer_arith() {
 
     printf("Point3D 占 %zu 字节，逐字节打印其内存内容（十六进制）：\n", sizeof(Point3D));
     for (size_t i = 0; i < sizeof(Point3D); ++i) {
-        printf("%02x ", structBytes[i]);
-        if ((i + 1) % 4 == 0) printf(" ");  // 每 4 字节（一个 float）加个空格
+        printf("%02x", structBytes[i]);
+        if ((i + 1) % 4 == 0) {
+            printf(" ");  // 每 4 字节（一个 float）加个空格
+        }
     }
     printf("\n(可以看到分成 3 组，每组 4 字节，对应 x, y, z 三个 float)\n");
 
     printf("\n========== 4. 用 uint8_t* 在一大块内存中定位子结构（协议解析常见模式） ==========\n");
     uint8_t buffer[16] = {0};
     // 假设 buffer 前 4 字节是 header(magic number)，后面是 payload
-    uint32_t magic = 0xDEADBEEF;
-    std::memcpy(buffer, &magic, sizeof(magic));   // 写入 header
+    uint32_t magicSrc = 0xDEADBEEF;
+    std::memcpy(buffer, &magicSrc, sizeof(magicSrc));   // 写入 header
 
     uint8_t* payload = buffer + sizeof(uint32_t);  // 跳过 header，指向 payload 起始处
     size_t payloadLen = sizeof(buffer) - sizeof(uint32_t);

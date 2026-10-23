@@ -31,7 +31,7 @@ void demo_01_basics() {
     char sc = static_cast<char>(200);   // 200 超出 signed char 范围，实现定义/回绕成负数
     uint8_t uc = 200;                    // uint8_t 里 200 就是 200，没有歧义
 
-    printf("char(200) 当作有符号数打印  = %d\n", sc);
+    printf("char(200) 当作有符号数打印    = %d\n", sc);
     printf("uint8_t(200) 打印           = %u\n", uc);
 
     if (sc > 100) {
