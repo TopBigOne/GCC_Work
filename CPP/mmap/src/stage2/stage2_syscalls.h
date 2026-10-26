@@ -100,8 +100,8 @@ class Stage2Syscalls {
 
     public:
         /**
-         * @brief 用 mkstemp 在 /tmp 下创建唯一命名的临时文件并以读写方式打开。
-         * @param suffix 文件名中间部分，生成形如 /tmp/mmap_learn_<suffix>_XXXXXX 的路径
+         * @brief 用 mkstemp 在工作目录 kWorkDir（mmap_tmp/）下创建唯一命名的临时文件并以读写方式打开。
+         * @param suffix 文件名中间部分，生成形如 mmap_tmp/mmap_learn_<suffix>_XXXXXX 的路径
          * @note 失败时打印错误信息，valid() 返回 false，不抛异常。
          */
         explicit TempFile(const char *suffix);

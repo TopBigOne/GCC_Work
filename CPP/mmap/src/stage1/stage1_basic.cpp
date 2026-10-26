@@ -12,7 +12,8 @@ namespace mmap_learn {
 void Stage1Basic::demo_read_file() {
     printf("[Stage1] demo_read_file: Read a file via mmap\n");
 
-    const char *path = "/tmp/mmap_learn_read.txt";
+    const std::string path_str = work_path("mmap_learn_read.txt");
+    const char *path = path_str.c_str();
     const char *message = "Hello mmap world!";
     size_t len = strlen(message);
 
@@ -53,7 +54,8 @@ void Stage1Basic::demo_read_file() {
 void Stage1Basic::demo_write_shared() {
     printf("[Stage1] demo_write_shared: Write via MAP_SHARED\n");
 
-    const char *path = "/tmp/mmap_learn_write.txt";
+    const std::string path_str = work_path("mmap_learn_write.txt");
+    const char *path = path_str.c_str();
     const char *initial = "ABCDEFGH";
     size_t len = strlen(initial);
 
@@ -109,7 +111,8 @@ void Stage1Basic::demo_write_shared() {
 void Stage1Basic::demo_shared_vs_private() {
     printf("[Stage1] demo_shared_vs_private: SHARED vs PRIVATE (COW)\n");
 
-    const char *path = "/tmp/mmap_learn_cow.txt";
+    const std::string path_str = work_path("mmap_learn_cow.txt");
+    const char *path = path_str.c_str();
     const char *original = "AAAA";
     size_t len = strlen(original);
 

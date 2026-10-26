@@ -25,6 +25,22 @@
 namespace mmap_learn {
 
     /**
+     * @brief 本项目所有临时文件统一存放的目录：程序运行时「当前工作目录」下的 mmap_tmp/。
+     *
+     * 不用系统的 /tmp：/tmp 是所有程序共用的，启动清理时容易误删别人的文件；
+     * 放在专用子目录里，运行时能直接看到生成的文件，启动时也可以放心清空整个目录。
+     * 由 main() 在启动时创建并清空。
+     */
+    inline constexpr const char *kWorkDir = "mmap_tmp";
+
+    /**
+     * @brief 拼出工作目录下某个文件的路径。
+     * @param name 文件名，如 "mmap_learn_read.txt"
+     * @return 相对路径，如 "mmap_tmp/mmap_learn_read.txt"
+     */
+    inline std::string work_path(const std::string &name) { return std::string(kWorkDir) + "/" + name; }
+
+    /**
      * @brief RAII 文件描述符，构造时 open，析构时 close。
      *
      * mmap 建立映射后即使 close(fd)，映射依然有效（内核在 VMA 中持有了

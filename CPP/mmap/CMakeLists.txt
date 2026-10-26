@@ -24,3 +24,13 @@ if(NOT HAVE_SHM_OPEN_IN_LIBC)
     endif()
     target_link_libraries(mmap_learn PRIVATE ${RT_LIBRARY})
 endif()
+
+# clean 时顺带删除程序运行生成的临时目录 mmap_tmp/（见 src/mmap_wrapper.hpp 的 kWorkDir）。
+# mmap_tmp/ 建在「运行程序时的工作目录」下，常见的有两处，都登记上：
+#   构建目录：CLion 默认在这里运行程序
+#   项目根目录：在项目根目录下用终端运行，或 CLion 工作目录设为 $ProjectFileDir$
+# ADDITIONAL_CLEAN_FILES 需要 CMake 3.15+，可以登记目录，clean 时连同目录一起删除
+set_property(TARGET mmap_learn APPEND PROPERTY ADDITIONAL_CLEAN_FILES
+    ${CMAKE_BINARY_DIR}/mmap_tmp
+    ${CMAKE_SOURCE_DIR}/mmap_tmp
+)

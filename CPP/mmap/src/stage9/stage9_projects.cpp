@@ -254,7 +254,8 @@ void SimpleKVStore::append_entry(std::string_view key, std::string_view value, b
 void Stage9Projects::demo_mini_grep() {
     printf("=== Stage 9: MiniGrep Demo ===\n\n");
 
-    const char *tmp_path = "/tmp/mmap_learn_grep_input.txt";
+    const std::string tmp_path_str = work_path("mmap_learn_grep_input.txt");
+    const char *tmp_path = tmp_path_str.c_str();
 
     // 用标准 C 文件 I/O 创建多行测试文本
     {
@@ -310,7 +311,8 @@ void Stage9Projects::demo_mini_grep() {
 void Stage9Projects::demo_kv_store() {
     printf("=== Stage 9: SimpleKVStore Demo ===\n\n");
 
-    const char *db_path = "/tmp/mmap_learn_kvstore.db";
+    const std::string db_path_str = work_path("mmap_learn_kvstore.db");
+    const char *db_path = db_path_str.c_str();
 
     // 删除上次运行可能残留的文件，保证从空库开始
     ::unlink(db_path);

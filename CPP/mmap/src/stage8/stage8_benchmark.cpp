@@ -75,7 +75,7 @@ MmapSequentialRead::MmapSequentialRead(size_t file_size, int iterations)
     : Benchmark("mmap sequential read", file_size, iterations) {}
 
 void MmapSequentialRead::setup() {
-    path_ = "/tmp/mmap_bench_seq_mmap.dat";
+    path_ = work_path("mmap_bench_seq_mmap.dat");
     create_test_file(path_);
 
     // 以只读方式打开并映射整个文件
@@ -112,7 +112,7 @@ ReadSequentialRead::ReadSequentialRead(size_t file_size, int iterations)
     : Benchmark("read() sequential read", file_size, iterations) {}
 
 void ReadSequentialRead::setup() {
-    path_ = "/tmp/mmap_bench_seq_read.dat";
+    path_ = work_path("mmap_bench_seq_read.dat");
     create_test_file(path_);
 
     fd_ = FileDescriptor(path_.c_str(), O_RDONLY);
@@ -153,7 +153,7 @@ MmapRandomRead::MmapRandomRead(size_t file_size, int iterations)
     : Benchmark("mmap random read", file_size, iterations) {}
 
 void MmapRandomRead::setup() {
-    path_ = "/tmp/mmap_bench_rand_mmap.dat";
+    path_ = work_path("mmap_bench_rand_mmap.dat");
     create_test_file(path_);
 
     // 预先生成随机偏移（4 字节对齐且不越界），避免把随机数生成的耗时算进测试
@@ -205,7 +205,7 @@ ReadRandomRead::ReadRandomRead(size_t file_size, int iterations)
     : Benchmark("read() random read", file_size, iterations) {}
 
 void ReadRandomRead::setup() {
-    path_ = "/tmp/mmap_bench_rand_read.dat";
+    path_ = work_path("mmap_bench_rand_read.dat");
     create_test_file(path_);
 
     // 预先生成随机偏移，种子与 MmapRandomRead 相同（123），保证两边访问完全相同的位置
