@@ -155,8 +155,8 @@ namespace mmap_learn {
      * 与 mmap 失败时的返回值保持一致。
      */
     class MmapRegion {
-        void *addr_ = MAP_FAILED; ///< 映射起始地址，内核保证按页对齐；无效时为 MAP_FAILED
-        size_t length_ = 0;       ///< 映射长度（字节），munmap 时需原样传回
+        void *mapped_addr_ = MAP_FAILED; ///< mmap 实际返回的映射起始地址，内核保证按页对齐；无效时为 MAP_FAILED
+        size_t length_ = 0;              ///< 映射长度（字节），munmap 时需原样传回
 
     public:
         /** @brief 构造一个无效的空映射。 */
@@ -164,7 +164,9 @@ namespace mmap_learn {
 
         /**
          * @brief 调用 mmap 建立映射，参数与 mmap(2) 一一对应。
-         * @param addr   期望的映射地址，通常传 nullptr 由内核选择
+         * @param hint_addr 建议的映射起始地址：告诉内核"最好把这段映射放在进程虚拟地址空间的这个位置"。
+         *                  不带 MAP_FIXED 时内核可以不采纳，实际地址以 mmap 返回值（mapped_addr_）为准；
+         *                  通常传 nullptr，表示不提建议，由内核自己挑一段空闲地址
          * @param length 映射长度，内核会向上取整到页大小
          * @param prot   访问权限：PROT_READ / PROT_WRITE / PROT_EXEC / PROT_NONE 的组合
          * @param flags  映射类型：MAP_SHARED 或 MAP_PRIVATE，可再组合 MAP_ANON 等
@@ -172,9 +174,9 @@ namespace mmap_learn {
          * @param offset 文件偏移，必须是页大小的整数倍
          * @throw std::runtime_error mmap 返回 MAP_FAILED 时抛出
          */
-        MmapRegion(void *addr, size_t length, int prot, int flags, int fd, off_t offset) : length_(length) {
-            addr_ = ::mmap(addr, length, prot, flags, fd, offset);
-            if (addr_ == MAP_FAILED) {
+        MmapRegion(void *hint_addr, size_t length, int prot, int flags, int fd, off_t offset) : length_(length) {
+            mapped_addr_ = ::mmap(hint_addr, length, prot, flags, fd, offset);
+            if (mapped_addr_ == MAP_FAILED) {
                 throw std::runtime_error(std::string("mmap failed: ") + strerror(errno));
             }
         }
@@ -184,8 +186,8 @@ namespace mmap_learn {
          * @note munmap 不保证 MAP_SHARED 的脏页已落盘，需要时请先调用 sync()。
          */
         ~MmapRegion() {
-            if (addr_ != MAP_FAILED) {
-                ::munmap(addr_, length_);
+            if (mapped_addr_ != MAP_FAILED) {
+                ::munmap(mapped_addr_, length_);
             }
         }
 
@@ -197,8 +199,8 @@ namespace mmap_learn {
          * @brief 移动构造，转移映射所有权。
          * @param other 源对象，移动后变为无效映射
          */
-        MmapRegion(MmapRegion &&other) noexcept : addr_(other.addr_), length_(other.length_) {
-            other.addr_ = MAP_FAILED;
+        MmapRegion(MmapRegion &&other) noexcept : mapped_addr_(other.mapped_addr_), length_(other.length_) {
+            other.mapped_addr_ = MAP_FAILED;
             other.length_ = 0;
         }
 
@@ -209,11 +211,11 @@ namespace mmap_learn {
          */
         MmapRegion &operator=(MmapRegion &&other) noexcept {
             if (this != &other) {
-                if (addr_ != MAP_FAILED)
-                    ::munmap(addr_, length_);
-                addr_ = other.addr_;
+                if (mapped_addr_ != MAP_FAILED)
+                    ::munmap(mapped_addr_, length_);
+                mapped_addr_ = other.mapped_addr_;
                 length_ = other.length_;
-                other.addr_ = MAP_FAILED;
+                other.mapped_addr_ = MAP_FAILED;
                 other.length_ = 0;
             }
             return *this;
@@ -233,7 +235,7 @@ namespace mmap_learn {
          *       PROT_READ 映射上写入会触发 SIGSEGV。
          * @return 映射起始地址，无效时为 MAP_FAILED
          */
-        void *data() { return addr_; }
+        void *data() { return mapped_addr_; }
 
         /**
          * @brief 获取映射起始地址（只读版本），用于只读取映射内容的场景。
@@ -249,7 +251,7 @@ namespace mmap_learn {
          *
          * @return 映射起始地址的只读指针，无效时为 MAP_FAILED
          */
-        const void *data() const { return addr_; }
+        const void *data() const { return mapped_addr_; }
 
         /**
          * @brief 获取映射长度。
@@ -261,7 +263,7 @@ namespace mmap_learn {
          * @brief 是否持有有效映射。
          * @return 持有时返回 true
          */
-        bool valid() const { return addr_ != MAP_FAILED; }
+        bool valid() const { return mapped_addr_ != MAP_FAILED; }
 
         /**
          * @brief 将映射区域按 T 类型指针访问，如 as<char>()、as<Header>()。
@@ -270,13 +272,13 @@ namespace mmap_learn {
          */
         template<typename T>
         T *as() {
-            return static_cast<T *>(addr_);
+            return static_cast<T *>(mapped_addr_);
         }
 
         /** @copydoc as() */
         template<typename T>
         const T *as() const {
-            return static_cast<const T *>(addr_);
+            return static_cast<const T *>(mapped_addr_);
         }
 
         /**
@@ -284,33 +286,33 @@ namespace mmap_learn {
          * @param flags MS_SYNC 阻塞直到写完；MS_ASYNC 只发起写回立即返回
          * @return 成功返回 0，失败返回 -1 并设置 errno
          */
-        int sync(int flags = MS_SYNC) { return ::msync(addr_, length_, flags); }
+        int sync(int flags = MS_SYNC) { return ::msync(mapped_addr_, length_, flags); }
 
         /**
          * @brief 调用 mprotect，运行时修改整个映射的页权限。
          * @param prot 新权限，如改为 PROT_READ 后再写入会触发 SIGSEGV
          * @return 成功返回 0，失败返回 -1 并设置 errno
          */
-        int protect(int prot) { return ::mprotect(addr_, length_, prot); }
+        int protect(int prot) { return ::mprotect(mapped_addr_, length_, prot); }
 
         /**
          * @brief 调用 madvise，提示内核访问模式以优化预读与回收。
          * @param advice MADV_SEQUENTIAL / MADV_RANDOM / MADV_WILLNEED / MADV_DONTNEED 等
          * @return 成功返回 0，失败返回 -1 并设置 errno
          */
-        int advise(int advice) { return ::madvise(addr_, length_, advice); }
+        int advise(int advice) { return ::madvise(mapped_addr_, length_, advice); }
 
         /**
          * @brief 调用 mlock，锁定物理页防止被换出，受 RLIMIT_MEMLOCK 限制。
          * @return 成功返回 0，失败返回 -1 并设置 errno
          */
-        int lock() { return ::mlock(addr_, length_); }
+        int lock() { return ::mlock(mapped_addr_, length_); }
 
         /**
          * @brief 调用 munlock，解除 lock() 的锁定。
          * @return 成功返回 0，失败返回 -1 并设置 errno
          */
-        int unlock() { return ::munlock(addr_, length_); }
+        int unlock() { return ::munlock(mapped_addr_, length_); }
     };
 
     /**
@@ -330,51 +332,51 @@ namespace mmap_learn {
      * @warning flags() 会整体覆盖所有标志（包括 anonymous() 设置的 MAP_ANON）。
      */
     class MmapBuilder {
-        void *addr_ = nullptr;    ///< 期望的映射地址，nullptr 表示由内核选择
-        size_t length_ = 0;       ///< 映射长度（字节），build() 时必须大于 0
-        int prot_ = PROT_READ;    ///< 访问权限
-        int flags_ = MAP_PRIVATE; ///< 映射类型标志
-        int fd_ = -1;             ///< 被映射文件的描述符，匿名映射为 -1
-        off_t offset_ = 0;        ///< 文件偏移，必须按页对齐
+        void *hint_addr_ = nullptr; ///< 建议的映射起始地址（内核可不采纳）；nullptr 表示不提建议
+        size_t length_ = 0;        ///< 映射长度（字节），build() 时必须大于 0
+        int prot_ = PROT_READ;     ///< 访问权限
+        int flags_ = MAP_PRIVATE;  ///< 映射类型标志
+        int fd_ = -1;              ///< 被映射文件的描述符，匿名映射为 -1
+        off_t offset_ = 0;         ///< 文件偏移，必须按页对齐
 
     public:
         /**
-         * @brief 设置期望的映射地址，不带 MAP_FIXED 时仅作为建议。
-         * @param a 期望地址
+         * @brief 设置建议的映射起始地址：不带 MAP_FIXED 时内核可以不采纳，带 MAP_FIXED 时必须放在这里。
+         * @param hint_addr 建议的映射起始地址（应按页对齐）
          * @return 自身引用，用于链式调用
          */
-        MmapBuilder &address(void *a) {
-            addr_ = a;
+        MmapBuilder &address(void *hint_addr) {
+            hint_addr_ = hint_addr;
             return *this;
         }
 
         /**
          * @brief 设置映射长度。
-         * @param l 长度（字节）
+         * @param length 映射长度（字节），内核会向上取整到页大小
          * @return 自身引用，用于链式调用
          */
-        MmapBuilder &length(size_t l) {
-            length_ = l;
+        MmapBuilder &length(size_t length) {
+            length_ = length;
             return *this;
         }
 
         /**
          * @brief 直接设置访问权限，会覆盖 readOnly() / readWrite() 的结果。
-         * @param p PROT_* 标志组合
+         * @param prot 访问权限，PROT_READ / PROT_WRITE / PROT_EXEC / PROT_NONE 的组合
          * @return 自身引用，用于链式调用
          */
-        MmapBuilder &protection(int p) {
-            prot_ = p;
+        MmapBuilder &protection(int prot) {
+            prot_ = prot;
             return *this;
         }
 
         /**
          * @brief 直接设置映射标志，会覆盖之前所有 flags（包括 anonymous()）。
-         * @param f MAP_* 标志组合
+         * @param flags 映射标志，MAP_SHARED / MAP_PRIVATE / MAP_ANON 等的组合
          * @return 自身引用，用于链式调用
          */
-        MmapBuilder &flags(int f) {
-            flags_ = f;
+        MmapBuilder &flags(int flags) {
+            flags_ = flags;
             return *this;
         }
 
@@ -390,11 +392,11 @@ namespace mmap_learn {
 
         /**
          * @brief 设置文件偏移。
-         * @param o 偏移量，必须是 sysconf(_SC_PAGESIZE) 的整数倍，否则 mmap 返回 EINVAL
+         * @param offset 文件偏移（字节），必须是 sysconf(_SC_PAGESIZE) 的整数倍，否则 mmap 返回 EINVAL
          * @return 自身引用，用于链式调用
          */
-        MmapBuilder &offset(off_t o) {
-            offset_ = o;
+        MmapBuilder &offset(off_t offset) {
+            offset_ = offset;
             return *this;
         }
 
@@ -457,7 +459,7 @@ namespace mmap_learn {
             if (length_ == 0) {
                 throw std::invalid_argument("MmapBuilder: length must be > 0");
             }
-            return MmapRegion(addr_, length_, prot_, flags_, fd_, offset_);
+            return MmapRegion(hint_addr_, length_, prot_, flags_, fd_, offset_);
         }
     };
 
