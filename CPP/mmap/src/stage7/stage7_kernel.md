@@ -19,9 +19,9 @@
 
 | demo                                                       | Linux         | macOS                                                   |
 |------------------------------------------------------------|---------------|---------------------------------------------------------|
-| `demo_observer`：用观察者模式记录映射生命周期              | ✅            | ✅ 完全一样                                             |
-| `demo_process_maps`：读 `/proc/self/maps` 并定位自己的映射 | ✅            | ⚠️ 没有 `/proc`，只打印提示，让你手动运行 `vmmap <pid>` |
-| `demo_vma_concepts`：打印内核数据结构与调用路径            | ✅ 只打印文字 | ✅ 只打印文字                                           |
+| `observer`：用观察者模式记录映射生命周期              | ✅            | ✅ 完全一样                                             |
+| `process_maps`：读 `/proc/self/maps` 并定位自己的映射 | ✅            | ⚠️ 没有 `/proc`，只打印提示，让你手动运行 `vmmap <pid>` |
+| `vma_concepts`：打印内核数据结构与调用路径            | ✅ 只打印文字 | ✅ 只打印文字                                           |
 
 文中讲的 `vm_area_struct`、`do_mmap`、缺页函数名都是 **Linux 内核**的。macOS（XNU 内核）的对应概念是 `vm_map_entry` 和 `vm_fault()`，思路相同、名字不同。
 
@@ -76,7 +76,7 @@
 | inode    | `1835`                      | 文件的 inode 号                                                              | `inode`                  |
 | 路径     | `/usr/lib/libc.so.6`        | 文件名，或 `[heap]`、`[stack]`、`[vdso]` 等                                  | `pathname`               |
 
-匿名映射的偏移、设备、inode 都是 0，没有路径。`demo_process_maps` 里的 `region1`、`region2` 就是这种。
+匿名映射的偏移、设备、inode 都是 0，没有路径。`process_maps` 里的 `region1`、`region2` 就是这种。
 
 **下半部分**：一个 VMA 内所有页的权限必须相同。所以对 3 页映射的中间一页 `mprotect(PROT_READ)`，内核只能把 VMA **拆成 3 个**（`split_vma`），maps 里也从 1 行变成 3 行。把权限改回去后，相邻三个 VMA 的属性又完全一样，内核会把它们**合并回 1 个**（`vma_merge`）。
 
@@ -88,30 +88,44 @@
 
 ### 1. 观察者模式：记录映射的生命周期
 
+![observer() 时序图：注册观察者、map、直接写内存、protect 的完整套路、unmap 先通知后解除](images/observer-sequence.svg)
+
 代码用观察者模式给 mmap 相关操作"埋点"，每次系统调用后都发出一个事件：
 
 - 事件类型 [`MemoryEventType`](stage7_kernel.h#L44)：`MAPPED`、`UNMAPPED`、`PROTECTED`、`SYNCED`、`LOCKED`；事件内容 [`MemoryEvent`](stage7_kernel.h#L55)：类型、地址、大小、描述。
-- 观察者接口 [`IMemoryObserver`](stage7_kernel.h#L70)，一个实现 [`ConsoleObserver`](stage7_kernel.h#L85) 把事件打印出来（[`on_event()`](stage7_kernel.cpp#L32)）。
-- 被观察对象 [`ObservableMmapRegion`](stage7_kernel.h#L114) 内部持有一个 `MmapRegion`，每个操作先执行系统调用，再调用 [`notify()`](stage7_kernel.cpp#L41) 通知所有观察者：
-  - [`map()`](stage7_kernel.cpp#L54) → `MAPPED`
-  - [`protect()`](stage7_kernel.cpp#L64) → `PROTECTED`，描述里带上新权限和结果
-  - [`sync()`](stage7_kernel.cpp#L76) → `SYNCED`
-  - [`lock()`](stage7_kernel.cpp#L84) → `LOCKED`
-  - [`unmap()`](stage7_kernel.cpp#L59) → `UNMAPPED`。注意它是**先通知、后解除**，所以事件里还能打印出原来的地址。
+- 观察者接口 [`IMemoryObserver`](stage7_kernel.h#L70)，一个实现 [`ConsoleObserver`](stage7_kernel.h#L85) 把事件打印出来（[`on_event()`](stage7_kernel.cpp#L38)）。
+- 被观察对象 [`ObservableMmapRegion`](stage7_kernel.h#L114) 内部持有一个 `MmapRegion`，每个操作先执行系统调用，再调用 [`notify()`](stage7_kernel.cpp#L48) 通知所有观察者：
+  - [`map()`](stage7_kernel.cpp#L61) → `MAPPED`
+  - [`protect()`](stage7_kernel.cpp#L71) → `PROTECTED`，描述里带上新权限和结果
+  - [`sync()`](stage7_kernel.cpp#L83) → `SYNCED`
+  - [`lock()`](stage7_kernel.cpp#L91) → `LOCKED`
+  - [`unmap()`](stage7_kernel.cpp#L66) → `UNMAPPED`。注意它是**先通知、后解除**，所以事件里还能打印出原来的地址。
 
 关键观察：**直接读写 `region.data()` 不产生任何事件**。读写内存不是系统调用，内核只在缺页那一刻介入，用户态的包装类根本感知不到。这正对应图一中列：首次访问由 MMU 和内核处理，跟你的代码无关。
 
 ### 2. 读 /proc/self/maps
 
+![process_maps() 时序图：建两块映射、读 maps 打印全部 VMA、按地址查找、析构时 munmap](images/process-maps-sequence.svg)
+
 [`ProcessMapsReader`](stage7_kernel.h#L250) 负责读取和解析：
 
-- [`read_maps()`](stage7_kernel.cpp#L103)：打开 `/proc/self/maps`，用 `unique_ptr<FILE>` 管理文件句柄，保证解析中途出异常也会关闭。macOS 上打不开，就提示 `vmmap <pid>`。
-- [`parse_maps_file()`](stage7_kernel.cpp#L155)：每行用 `sscanf` 按 `"%lx-%lx %4s %lx %11s %lu %255[^\n]"` 拆成 7 段，匿名映射没有路径，所以至少要拿到 6 段才算有效。
-- [`find_region()`](stage7_kernel.cpp#L145)：给一个地址，在所有条目里找 `start <= addr < end` 的那一个。这就是内核 `find_vma()` 做的事，只不过内核用树查找，这里是线性扫描。
+- [`read_maps()`](stage7_kernel.cpp#L110)：打开 `/proc/self/maps`，用 `unique_ptr<FILE>` 管理文件句柄，保证解析中途出异常也会关闭。macOS 上打不开，就提示 `vmmap <pid>`。
+- [`parse_maps_file()`](stage7_kernel.cpp#L161)：每行用 `sscanf` 按 `"%lx-%lx %4s %lx %11s %lu %255[^\n]"` 拆成 7 段，匿名映射没有路径，所以至少要拿到 6 段才算有效。
+- [`find_region()`](stage7_kernel.cpp#L151)：给一个地址，在所有条目里找 `start <= addr < end` 的那一个。这就是内核 `find_vma()` 做的事，只不过内核用树查找，这里是线性扫描。
 
 ### 3. 内核路径与缺页处理
 
-[`demo_vma_concepts()`](stage7_kernel.cpp#L258) 把内核里的调用路径打印出来，对照图一阅读即可：
+![vma_concepts() 时序图：VMA 数据结构、mmap() 在内核里的调用路径、第一次访问时的缺页处理路径](images/vma-concepts-sequence.svg)
+
+这张图分三块：
+
+- **一、VMA**：每个进程有一个 `mm_struct`，它用一棵 maple tree 管理所有 VMA；一个 `vm_area_struct` 描述一段连续、属性相同的虚拟地址。
+- **二、调用 mmap()**：从系统调用入口一路到 `do_mmap` / `mmap_region`，做的事情是加锁、检查、找地址、建 VMA、插进树里。整个过程**页表一项都没动**。只有 `MAP_POPULATE` 或 `mlock` 会在返回前主动触发缺页。
+- **三、第一次访问**：MMU 查不到页表项 → 缺页异常 → `find_vma` 找 VMA（找不到就 SIGSEGV）→ `handle_mm_fault` 逐级建页表 → `handle_pte_fault` 按情况分给 4 个处理函数 → 填好 PTE → 回到用户态重新执行那条指令。
+
+> 代码打印的第 5 步（插入 maple tree）和第 6 步（调 `f_op->mmap`）顺序与新内核相反：`mmap_region()` 先调 `f_op->mmap`，成功后才把 VMA 插进树里。图里按实际顺序画。
+
+[`vma_concepts()`](stage7_kernel.cpp#L260) 把内核里的调用路径打印出来，对照图一阅读即可：
 
 ```
 mmap()  →  ksys_mmap_pgoff  →  vm_mmap_pgoff  →  do_mmap
@@ -142,7 +156,7 @@ mmap()  →  ksys_mmap_pgoff  →  vm_mmap_pgoff  →  do_mmap
 ## 运行输出解读（macOS）
 
 ```text
-[Stage7] demo_observer: Observer pattern for mmap operations
+[Stage7] observer: Observer pattern for mmap operations
 
   --- Mapping anonymous region (4096 bytes) ---
   [EVENT] MAPPED     | addr: 0x104768000 | size:     4096 | mmap created
@@ -169,7 +183,7 @@ mmap()  →  ksys_mmap_pgoff  →  vm_mmap_pgoff  →  do_mmap
 - `UNMAPPED`：先通知再 munmap，所以还能打印原地址。
 
 ```text
-[Stage7] demo_process_maps: Process memory layout
+[Stage7] process_maps: Process memory layout
 
   Created region1 at 0x104768000 (4096 bytes, rw)
   Created region2 at 0x10476c000 (8192 bytes, r-)
@@ -186,7 +200,7 @@ mmap()  →  ksys_mmap_pgoff  →  vm_mmap_pgoff  →  do_mmap
 
 **在 Linux 上**，这里会打印完整的 maps 表，并输出 `region1 (…) found in: … rw-p` 和 `region2 (…) found in: … r--p`。两块权限不同，所以即使地址相邻，也是两个独立的 VMA，不会合并。
 
-`demo_vma_concepts` 只打印文字，对照上面的图一和"内核路径"一节阅读。
+`vma_concepts` 只打印文字，对照"内核路径与缺页处理"一节的时序图阅读。
 
 ---
 

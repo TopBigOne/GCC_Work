@@ -294,7 +294,7 @@ public:
      *
      * @note mlock 可能因 RLIMIT_MEMLOCK 太小而失败，会显示 (failed)，属正常现象。
      */
-    static void demo_observer();
+    static void observer();
 
     /**
      * @brief Demo 2：创建两块匿名映射，然后在 /proc/self/maps 中找到它们。
@@ -307,7 +307,7 @@ public:
      *       权限相同且相邻的匿名映射，内核可能会把它们合并成一个 VMA。
      * @note macOS 上读不到 maps，会提示使用 `vmmap <pid>`。
      */
-    static void demo_process_maps();
+    static void process_maps();
 
     /**
      * @brief Demo 3：讲解 VMA 结构、do_mmap 内核路径和缺页处理（只打印说明）。
@@ -325,7 +325,7 @@ public:
      *       减少缺页次数和 TLB miss，但可能增加内存浪费和延迟抖动。
      * @note 打印的函数名来自 Linux 内核（6.x），macOS 的 XNU 内核结构完全不同。
      */
-    static void demo_vma_concepts();
+    static void vma_concepts();
 
     /** @brief 依次运行阶段 7 的全部 demo。 */
     static void run_all();

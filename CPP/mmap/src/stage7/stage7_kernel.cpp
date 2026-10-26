@@ -182,8 +182,8 @@ void ProcessMapsReader::parse_maps_file(FILE *f, std::vector<ProcessMapEntry> &e
 // Stage7Kernel
 // ============================================================
 
-void Stage7Kernel::demo_observer() {
-    LOGD(kTag, "1:demo_observer: Observer pattern for mmap operations");
+void Stage7Kernel::observer() {
+    LOGD(kTag, "1:observer: Observer pattern for mmap operations");
 
     ConsoleObserver console_obs;
     ObservableMmapRegion region;
@@ -219,10 +219,10 @@ void Stage7Kernel::demo_observer() {
     region.unmap();
 }
 
-void Stage7Kernel::demo_process_maps() {
+void Stage7Kernel::process_maps() {
     LOGD(kTag, "     ");
     LOGD(kTag, "     ");
-    LOGD(kTag, "2:demo_process_maps: Process memory layout");
+    LOGD(kTag, "2:process_maps: Process memory layout");
 
     // 创建两块映射，稍后在 maps 中查找它们
     MmapRegion region1(nullptr, 4096, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
@@ -257,10 +257,10 @@ void Stage7Kernel::demo_process_maps() {
     }
 }
 
-void Stage7Kernel::demo_vma_concepts() {
+void Stage7Kernel::vma_concepts() {
     LOGD(kTag, "     ");
     LOGD(kTag, "     ");
-    LOGD(kTag, "3:demo_vma_concepts: Kernel internals explanation 内核原理讲解");
+    LOGD(kTag, "3:vma_concepts: Kernel internals explanation 内核原理讲解");
 
     LOGI(kTag, "=== vm_area_struct (VMA) - Linux Kernel Data Structure:Linux 内核里描述一段映射的数据结构  ===");
     LOGI(kTag, "    Each call to mmap() creates a vm_area_struct in the kernel.每调用一次 mmap()，内核就新建一个 vm_area_struct。");
@@ -329,9 +329,9 @@ void Stage7Kernel::run_all() {
     LOGI(kTag, "Stage 7: Kernel Internals Observation");
     LOGI(kTag, "========================================");
 
-    demo_observer();
-    demo_process_maps();
-    demo_vma_concepts();
+    observer();
+    process_maps();
+    vma_concepts();
 
     LOGI(kTag, "========================================");
     LOGI(kTag, "Stage 7 complete");

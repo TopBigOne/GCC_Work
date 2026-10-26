@@ -1,0 +1,277 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 2265" width="1100" height="2265">
+  <title>VMA 与缺页内核路径</title>
+  <style>
+    .t     { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #0f172a; }
+    .mono  { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 11.5px; fill: #0f172a; }
+    .sub   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #475569; }
+    .msg   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #1e293b; }
+    .lbl   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #1e293b; font-weight: 600; }
+    .head  { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 13px; font-weight: 700; fill: #0f172a; }
+    .sec   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 13px; font-weight: 700; fill: #334155; }
+    .panel { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 16px; font-weight: 700; fill: #0f172a; }
+    .msg, .mono, .sub, .lbl { paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; }
+    .life  { stroke: #94a3b8; stroke-width: 1.2; stroke-dasharray: 5 4; }
+    .call  { stroke: #2563eb; stroke-width: 1.6; fill: none; }
+    .ret   { stroke: #64748b; stroke-width: 1.3; fill: none; stroke-dasharray: 5 4; }
+    .kern  { stroke: #ea580c; stroke-width: 1.6; fill: none; }
+    .ok    { stroke: #16a34a; stroke-width: 1.6; fill: none; }
+    .bad   { stroke: #dc2626; stroke-width: 1.8; fill: none; }
+    .frame { fill: none; stroke: #475569; stroke-width: 1.2; }
+    .tab   { fill: #f1f5f9; stroke: #475569; stroke-width: 1.2; }
+    .p-app { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.5; }
+    .p-k   { fill: #fff7ed; stroke: #ea580c; stroke-width: 1.5; }
+    .p-c   { fill: #ecfdf5; stroke: #16a34a; stroke-width: 1.5; }
+    .p-g   { fill: #f8fafc; stroke: #64748b; stroke-width: 1.5; }
+  </style>
+  <defs>
+    <marker id="mb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker>
+    <marker id="mg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#64748b"/></marker>
+    <marker id="mo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/></marker>
+    <marker id="mgr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#16a34a"/></marker>
+    <marker id="mr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#dc2626"/></marker>
+  </defs>
+  <rect x="0.5" y="0.5" width="1099" height="2264" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+  <text class="t" x="550.0" y="36" font-size="21" font-weight="700" text-anchor="middle">vma_concepts()：mmap() 与缺页在 Linux 内核里的完整路径</text>
+  <text class="sub" x="550.0" y="60" text-anchor="middle" style="font-size:13px">这个函数只打印文字；下图把它讲的三部分画出来：VMA 数据结构 → 调用 mmap() → 第一次访问时缺页（函数名以 Linux 6.x 为准）</text>
+  <text class="panel" x="24" y="100" text-anchor="start">一、VMA：进程地址空间的&quot;登记簿&quot;</text>
+  <rect x="30" y="118" width="210" height="150" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text class="lbl" x="135" y="140" text-anchor="middle">mm_struct（每个进程一个）</text>
+  <text class="mono" x="44" y="166" text-anchor="start">mm_mt</text>
+  <text class="sub" x="140" y="166" text-anchor="start">VMA 树的根</text>
+  <text class="mono" x="44" y="190" text-anchor="start">pgd</text>
+  <text class="sub" x="140" y="190" text-anchor="start">页表的根</text>
+  <text class="mono" x="44" y="214" text-anchor="start">map_count</text>
+  <text class="sub" x="140" y="214" text-anchor="start">VMA 个数</text>
+  <text class="mono" x="44" y="238" text-anchor="start">total_vm</text>
+  <text class="sub" x="140" y="238" text-anchor="start">虚拟内存总页数</text>
+  <rect x="290" y="118" width="230" height="168" rx="10" fill="#f8fafc" stroke="#64748b" stroke-width="1.5"/>
+  <text class="lbl" x="405" y="140" text-anchor="middle">maple tree（6.1 前是红黑树）</text>
+  <line x1="240" y1="166" x2="286" y2="166" stroke="#2563eb" stroke-width="1.6" marker-end="url(#mb)"/>
+  <rect x="380" y="152" width="50" height="22" rx="4" fill="#ffffff" stroke="#64748b"/>
+  <text class="sub" x="405" y="168" text-anchor="middle">节点</text>
+  <line x1="405" y1="174" x2="320" y2="194" stroke="#94a3b8" stroke-width="1.2"/>
+  <rect x="295" y="194" width="50" height="22" rx="4" fill="#ffffff" stroke="#64748b"/>
+  <text class="sub" x="320" y="210" text-anchor="middle">节点</text>
+  <line x1="405" y1="174" x2="470" y2="194" stroke="#94a3b8" stroke-width="1.2"/>
+  <rect x="445" y="194" width="50" height="22" rx="4" fill="#ffffff" stroke="#64748b"/>
+  <text class="sub" x="470" y="210" text-anchor="middle">节点</text>
+  <line x1="320" y1="216" x2="302" y2="232" stroke="#94a3b8" stroke-width="1.2"/>
+  <rect x="279" y="232" width="46" height="22" rx="4" fill="#ffffff" stroke="#64748b" stroke-width="1.3"/>
+  <text class="sub" x="302" y="247" text-anchor="middle">heap</text>
+  <line x1="320" y1="216" x2="352" y2="232" stroke="#94a3b8" stroke-width="1.2"/>
+  <rect x="329" y="232" width="46" height="22" rx="4" fill="#ffffff" stroke="#64748b" stroke-width="1.3"/>
+  <text class="sub" x="352" y="247" text-anchor="middle">libc</text>
+  <line x1="470" y1="216" x2="420" y2="232" stroke="#94a3b8" stroke-width="1.2"/>
+  <rect x="397" y="232" width="46" height="22" rx="4" fill="#fff7ed" stroke="#ea580c" stroke-width="1.3"/>
+  <text class="sub" x="420" y="247" text-anchor="middle">新映射</text>
+  <line x1="470" y1="216" x2="474" y2="232" stroke="#94a3b8" stroke-width="1.2"/>
+  <rect x="451" y="232" width="46" height="22" rx="4" fill="#ffffff" stroke="#64748b" stroke-width="1.3"/>
+  <text class="sub" x="474" y="247" text-anchor="middle">stack</text>
+  <text class="sub" x="405" y="276" text-anchor="middle">按地址查找是 O(log n)</text>
+  <line x1="443" y1="243" x2="556" y2="190" stroke="#ea580c" stroke-width="1.6" marker-end="url(#mo)"/>
+  <rect x="560" y="112" width="510" height="168" rx="10" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+  <text class="lbl" x="576" y="134" text-anchor="start">vm_area_struct：一段连续、属性完全相同的虚拟地址</text>
+  <text class="mono" x="576" y="160" text-anchor="start">vm_start / vm_end</text>
+  <text class="sub" x="730" y="160" text-anchor="start">起止地址 [start, end)，按页对齐</text>
+  <text class="mono" x="576" y="180" text-anchor="start">vm_flags</text>
+  <text class="sub" x="730" y="180" text-anchor="start">VM_READ / WRITE / EXEC / SHARED / LOCKED …</text>
+  <text class="mono" x="576" y="200" text-anchor="start">vm_pgoff</text>
+  <text class="sub" x="730" y="200" text-anchor="start">对应文件里的偏移（以页为单位）</text>
+  <text class="mono" x="576" y="220" text-anchor="start">vm_file</text>
+  <text class="sub" x="730" y="220" text-anchor="start">映射的文件；匿名映射为 NULL</text>
+  <text class="mono" x="576" y="240" text-anchor="start">vm_ops</text>
+  <text class="sub" x="730" y="240" text-anchor="start">回调表：缺页时调用 vm_ops-&gt;fault</text>
+  <text class="mono" x="576" y="260" text-anchor="start">vm_mm</text>
+  <text class="sub" x="730" y="260" text-anchor="start">指回所属的 mm_struct</text>
+  <line x1="20" y1="300" x2="1080" y2="300" stroke="#cbd5e1" stroke-width="1"/>
+  <text class="sec" x="24" y="317" text-anchor="start"></text>
+  <text class="panel" x="24" y="330" text-anchor="start">二、调用 mmap()：只登记，不分配</text>
+  <line class="life" x1="80" y1="392" x2="80" y2="1110"/>
+  <line class="life" x1="225" y1="392" x2="225" y2="1110"/>
+  <line class="life" x1="375" y1="392" x2="375" y2="1110"/>
+  <line class="life" x1="525" y1="392" x2="525" y2="1110"/>
+  <line class="life" x1="690" y1="392" x2="690" y2="1110"/>
+  <line class="life" x1="850" y1="392" x2="850" y2="1110"/>
+  <line class="life" x1="1010" y1="392" x2="1010" y2="1110"/>
+  <rect class="p-app" x="12" y="346" width="136" height="46" rx="8"/>
+  <text class="head" x="80" y="366" text-anchor="middle">用户程序</text>
+  <text class="sub" x="80" y="384" text-anchor="middle">mmap(...)</text>
+  <rect class="p-k" x="157" y="346" width="136" height="46" rx="8"/>
+  <text class="head" x="225" y="366" text-anchor="middle">系统调用入口</text>
+  <text class="sub" x="225" y="384" text-anchor="middle">SYS_mmap</text>
+  <rect class="p-k" x="307" y="346" width="136" height="46" rx="8"/>
+  <text class="head" x="375" y="366" text-anchor="middle">ksys_mmap_pgoff</text>
+  <rect class="p-k" x="457" y="346" width="136" height="46" rx="8"/>
+  <text class="head" x="525" y="366" text-anchor="middle">vm_mmap_pgoff</text>
+  <rect class="p-k" x="622" y="346" width="136" height="46" rx="8"/>
+  <text class="head" x="690" y="366" text-anchor="middle">do_mmap</text>
+  <text class="sub" x="690" y="384" text-anchor="middle">+ mmap_region</text>
+  <rect class="p-g" x="782" y="346" width="136" height="46" rx="8"/>
+  <text class="head" x="850" y="366" text-anchor="middle">mm_struct</text>
+  <text class="sub" x="850" y="384" text-anchor="middle">maple tree</text>
+  <rect class="p-c" x="942" y="346" width="136" height="46" rx="8"/>
+  <text class="head" x="1010" y="366" text-anchor="middle">file-&gt;f_op</text>
+  <text class="sub" x="1010" y="384" text-anchor="middle">文件系统 / 驱动</text>
+  <line class="call" x1="85" y1="422" x2="222" y2="422" marker-end="url(#mb)"/>
+  <text class="mono" x="152.5" y="416" text-anchor="middle">mmap()</text>
+  <text class="sub" x="152.5" y="437" text-anchor="middle">syscall/svc 陷入内核</text>
+  <line class="call" x1="230" y1="462" x2="372" y2="462" marker-end="url(#mb)"/>
+  <text class="mono" x="300.0" y="456" text-anchor="middle">ksys_mmap_pgoff()</text>
+  <path class="call" d="M380,472 L407,472 L407,482 L382,482" marker-end="url(#mb)"/>
+  <text class="msg" x="413" y="481" text-anchor="start">fget(fd) 取出 struct file</text>
+  <text class="sub" x="413" y="497" text-anchor="start">MAP_HUGETLB 时改建一个 hugetlbfs 文件</text>
+  <line class="call" x1="380" y1="526" x2="522" y2="526" marker-end="url(#mb)"/>
+  <text class="mono" x="450.0" y="520" text-anchor="middle">vm_mmap_pgoff()</text>
+  <path class="call" d="M530,536 L557,536 L557,546 L532,546" marker-end="url(#mb)"/>
+  <text class="msg" x="563" y="545" text-anchor="start">security_mmap_file()：LSM 安全检查</text>
+  <path class="call" d="M530,562 L557,562 L557,572 L532,572" marker-end="url(#mb)"/>
+  <text class="msg" x="563" y="571" text-anchor="start">mmap_write_lock(mm)：加 mmap 写锁</text>
+  <line class="call" x1="530" y1="598" x2="687" y2="598" marker-end="url(#mb)"/>
+  <text class="mono" x="607.5" y="592" text-anchor="middle">do_mmap()</text>
+  <path class="call" d="M695,608 L722,608 L722,618 L697,618" marker-end="url(#mb)"/>
+  <text class="msg" x="728" y="617" text-anchor="start">① 校验参数：len 页对齐且不为 0，prot / flags 合法</text>
+  <text class="sub" x="728" y="633" text-anchor="start">VMA 数量不能超过 vm.max_map_count</text>
+  <line class="call" x1="695" y1="664" x2="847" y2="664" marker-end="url(#mb)"/>
+  <text class="mono" x="770.0" y="658" text-anchor="middle">② get_unmapped_area()</text>
+  <line class="ret" x1="845" y1="686" x2="693" y2="686" marker-end="url(#mg)"/>
+  <text class="msg" x="770.0" y="680" text-anchor="middle">空闲区间的起始地址（ASLR 随机）</text>
+  <path class="call" d="M695,698 L722,698 L722,708 L697,708" marker-end="url(#mb)"/>
+  <text class="msg" x="728" y="707" text-anchor="start">把 prot / flags 换算成 vm_flags</text>
+  <path class="call" d="M695,724 L722,724 L722,734 L697,734" marker-end="url(#mb)"/>
+  <text class="msg" x="728" y="733" text-anchor="start">③ 检查 rlimit：RLIMIT_MEMLOCK、RLIMIT_AS</text>
+  <path class="call" d="M695,750 L722,750 L722,760 L697,760" marker-end="url(#mb)"/>
+  <text class="msg" x="728" y="759" text-anchor="start">mmap_region()：能和相邻 VMA 合并就直接扩展它（vma_merge）</text>
+  <path class="call" d="M695,776 L722,776 L722,786 L697,786" marker-end="url(#mb)"/>
+  <text class="msg" x="728" y="785" text-anchor="start">④ 否则 vm_area_alloc() 分配新 VMA，填好 vm_start … vm_pgoff</text>
+  <rect class="frame" x="600" y="810" width="480" height="120"/>
+  <path class="tab" d="M600,810 L646,810 L646,824 L638,832 L600,832 z"/>
+  <text class="lbl" x="607" y="826" text-anchor="start">alt</text>
+  <text class="lbl" x="654" y="826" text-anchor="start" fill="#16a34a">[文件映射]</text>
+  <line class="call" x1="695" y1="856" x2="1007" y2="856" marker-end="url(#mb)"/>
+  <text class="mono" x="850.0" y="850" text-anchor="middle">⑥ f_op-&gt;mmap(file, vma)</text>
+  <text class="sub" x="1074" y="874" text-anchor="end">普通文件：vm_ops 指向 page cache 的 fault 回调</text>
+  <text class="sub" x="1074" y="890" text-anchor="end">设备驱动：可直接 remap_pfn_range（阶段 5）</text>
+  <line x1="600" y1="900" x2="1080" y2="900" stroke="#475569" stroke-width="1.2" stroke-dasharray="6 4"/>
+  <text class="lbl" x="608" y="916" text-anchor="start" fill="#ea580c">[匿名映射]</text>
+  <text class="sub" x="700" y="916" text-anchor="start">vm_ops = NULL；MAP_SHARED 匿名映射交给 shmem</text>
+  <line class="call" x1="695" y1="954" x2="847" y2="954" marker-end="url(#mb)"/>
+  <text class="msg" x="700" y="948" text-anchor="start">⑤ 插入 maple tree（vma_iter_store），map_count++</text>
+  <line class="ret" x1="685" y1="980" x2="528" y2="980" marker-end="url(#mg)"/>
+  <text class="msg" x="607.5" y="974" text-anchor="middle">⑦ 返回地址</text>
+  <path class="call" d="M530,990 L557,990 L557,1000 L532,1000" marker-end="url(#mb)"/>
+  <text class="msg" x="563" y="999" text-anchor="start">mmap_write_unlock(mm)</text>
+  <path class="call" d="M530,1016 L557,1016 L557,1026 L532,1026" marker-end="url(#mb)"/>
+  <text class="msg" x="563" y="1025" text-anchor="start">MAP_POPULATE / VM_LOCKED → mm_populate()</text>
+  <text class="sub" x="563" y="1041" text-anchor="start">立刻对每一页触发缺页（&quot;打破惰性&quot;）</text>
+  <line class="ret" x1="520" y1="1066" x2="83" y2="1066" marker-end="url(#mg)"/>
+  <text class="msg" x="100" y="1060" text-anchor="start">返回虚拟地址（经 ksys_mmap_pgoff、系统调用出口）</text>
+  <rect x="40" y="1086" width="1020" height="34" rx="8" fill="#fefce8" stroke="#ca8a04" stroke-width="1.2"/>
+  <text class="lbl" x="550.0" y="1108" text-anchor="middle" fill="#a16207">到这里：页表一项都没动，一个物理页都没分配 → 所以 mmap 10 GB 和 mmap 4 KB 一样快</text>
+  <line x1="20" y1="1138" x2="1080" y2="1138" stroke="#cbd5e1" stroke-width="1"/>
+  <text class="sec" x="24" y="1155" text-anchor="start"></text>
+  <text class="panel" x="24" y="1168" text-anchor="start">三、第一次访问：缺页异常把物理页补上</text>
+  <line class="life" x1="80" y1="1230" x2="80" y2="2113"/>
+  <line class="life" x1="225" y1="1230" x2="225" y2="2113"/>
+  <line class="life" x1="375" y1="1230" x2="375" y2="2113"/>
+  <line class="life" x1="525" y1="1230" x2="525" y2="2113"/>
+  <line class="life" x1="690" y1="1230" x2="690" y2="2113"/>
+  <line class="life" x1="850" y1="1230" x2="850" y2="2113"/>
+  <line class="life" x1="1010" y1="1230" x2="1010" y2="2113"/>
+  <rect class="p-app" x="12" y="1184" width="136" height="46" rx="8"/>
+  <text class="head" x="80" y="1204" text-anchor="middle">用户程序</text>
+  <text class="sub" x="80" y="1222" text-anchor="middle">读写 addr[0]</text>
+  <rect class="p-g" x="157" y="1184" width="136" height="46" rx="8"/>
+  <text class="head" x="225" y="1204" text-anchor="middle">CPU / MMU</text>
+  <text class="sub" x="225" y="1222" text-anchor="middle">TLB + 页表</text>
+  <rect class="p-k" x="307" y="1184" width="136" height="46" rx="8"/>
+  <text class="head" x="375" y="1204" text-anchor="middle">do_page_fault</text>
+  <text class="sub" x="375" y="1222" text-anchor="middle">异常入口</text>
+  <rect class="p-k" x="457" y="1184" width="136" height="46" rx="8"/>
+  <text class="head" x="525" y="1204" text-anchor="middle">find_vma</text>
+  <text class="sub" x="525" y="1222" text-anchor="middle">查 maple tree</text>
+  <rect class="p-k" x="622" y="1184" width="136" height="46" rx="8"/>
+  <text class="head" x="690" y="1204" text-anchor="middle">handle_mm_fault</text>
+  <rect class="p-k" x="782" y="1184" width="136" height="46" rx="8"/>
+  <text class="head" x="850" y="1204" text-anchor="middle">handle_pte_fault</text>
+  <rect class="p-c" x="942" y="1184" width="136" height="46" rx="8"/>
+  <text class="head" x="1010" y="1204" text-anchor="middle">具体处理函数</text>
+  <text class="sub" x="1010" y="1222" text-anchor="middle">按情况四选一</text>
+  <line class="call" x1="85" y1="1260" x2="222" y2="1260" marker-end="url(#mb)"/>
+  <text class="mono" x="152.5" y="1254" text-anchor="middle">load / store</text>
+  <path class="call" d="M230,1270 L257,1270 L257,1280 L232,1280" marker-end="url(#mb)"/>
+  <text class="msg" x="263" y="1279" text-anchor="start">TLB 未命中 → 硬件查页表（page walk）</text>
+  <path class="bad" d="M230,1296 L257,1296 L257,1306 L232,1306" marker-end="url(#mr)"/>
+  <text class="msg" x="263" y="1305" text-anchor="start">发现 PTE 不存在，或者往只读页里写</text>
+  <line class="call" x1="230" y1="1336" x2="372" y2="1336" marker-end="url(#mb)"/>
+  <text class="msg" x="300.0" y="1330" text-anchor="middle">缺页异常</text>
+  <text class="sub" x="300.0" y="1351" text-anchor="middle">x86 #PF / ARM64 data abort，带上出错地址</text>
+  <path class="call" d="M380,1368 L407,1368 L407,1378 L382,1378" marker-end="url(#mb)"/>
+  <text class="msg" x="413" y="1377" text-anchor="start">x86 新内核里叫 do_user_addr_fault()</text>
+  <path class="call" d="M380,1394 L407,1394 L407,1404 L382,1404" marker-end="url(#mb)"/>
+  <text class="msg" x="413" y="1403" text-anchor="start">加 mmap 读锁（6.4 起先试单个 VMA 的锁）</text>
+  <line class="call" x1="380" y1="1430" x2="522" y2="1430" marker-end="url(#mb)"/>
+  <text class="mono" x="450.0" y="1424" text-anchor="middle">find_vma(mm, addr)</text>
+  <line class="ret" x1="520" y1="1452" x2="378" y2="1452" marker-end="url(#mg)"/>
+  <text class="msg" x="450.0" y="1446" text-anchor="middle">VMA 或 NULL</text>
+  <rect class="frame" x="40" y="1466" width="1020" height="52"/>
+  <path class="tab" d="M40,1466 L86,1466 L86,1480 L78,1488 L40,1488 z"/>
+  <text class="lbl" x="47" y="1482" text-anchor="start">opt</text>
+  <text class="lbl" x="94" y="1482" text-anchor="start" fill="#dc2626">[地址不在任何 VMA 里 / 权限不符]</text>
+  <line class="bad" x1="370" y1="1506" x2="83" y2="1506" marker-end="url(#mr)"/>
+  <text class="msg" x="100" y="1500" text-anchor="start">bad_area → 发 SIGSEGV，进程通常就此崩溃</text>
+  <line class="call" x1="380" y1="1542" x2="687" y2="1542" marker-end="url(#mb)"/>
+  <text class="mono" x="532.5" y="1536" text-anchor="middle">handle_mm_fault(vma, addr, flags)</text>
+  <path class="call" d="M695,1552 L722,1552 L722,1562 L697,1562" marker-end="url(#mb)"/>
+  <text class="msg" x="728" y="1561" text-anchor="start">__handle_mm_fault()：逐级找或建页表</text>
+  <text class="sub" x="728" y="1577" text-anchor="start">PGD → P4D → PUD → PMD</text>
+  <path class="call" d="M695,1596 L722,1596 L722,1606 L697,1606" marker-end="url(#mb)"/>
+  <text class="msg" x="728" y="1605" text-anchor="start">符合条件时直接建 2 MB 大页（THP），不再往下走</text>
+  <line class="call" x1="695" y1="1632" x2="847" y2="1632" marker-end="url(#mb)"/>
+  <text class="mono" x="770.0" y="1626" text-anchor="middle">handle_pte_fault()</text>
+  <rect class="frame" x="600" y="1646" width="480" height="268"/>
+  <path class="tab" d="M600,1646 L646,1646 L646,1660 L638,1668 L600,1668 z"/>
+  <text class="lbl" x="607" y="1662" text-anchor="start">alt</text>
+  <text class="lbl" x="654" y="1662" text-anchor="start" fill="#16a34a">[PTE 为空 + 匿名 VMA]</text>
+  <line class="ok" x1="855" y1="1690" x2="1007" y2="1690" marker-end="url(#mgr)"/>
+  <text class="mono" x="930.0" y="1684" text-anchor="middle">do_anonymous_page()</text>
+  <text class="sub" x="1074" y="1707" text-anchor="end">读：映射全局共享的零页</text>
+  <text class="sub" x="1074" y="1723" text-anchor="end">写：分配一页清零的物理内存</text>
+  <line x1="600" y1="1734" x2="1080" y2="1734" stroke="#475569" stroke-width="1.2" stroke-dasharray="6 4"/>
+  <text class="lbl" x="608" y="1750" text-anchor="start" fill="#16a34a">[PTE 为空 + 文件 VMA]</text>
+  <line class="ok" x1="855" y1="1754" x2="1007" y2="1754" marker-end="url(#mgr)"/>
+  <text class="mono" x="930.0" y="1748" text-anchor="middle">do_read_fault()</text>
+  <text class="sub" x="1074" y="1771" text-anchor="end">vm_ops-&gt;fault：page cache 命中直接用，否则读盘</text>
+  <text class="sub" x="1074" y="1787" text-anchor="end">写私有映射走 do_cow_fault，写共享映射走 do_shared_fault</text>
+  <line x1="600" y1="1798" x2="1080" y2="1798" stroke="#475569" stroke-width="1.2" stroke-dasharray="6 4"/>
+  <text class="lbl" x="608" y="1814" text-anchor="start" fill="#16a34a">[PTE 在，但页被换出到 swap]</text>
+  <line class="ok" x1="855" y1="1818" x2="1007" y2="1818" marker-end="url(#mgr)"/>
+  <text class="mono" x="930.0" y="1812" text-anchor="middle">do_swap_page()</text>
+  <text class="sub" x="1074" y="1835" text-anchor="end">从 swap 读回物理页</text>
+  <line x1="600" y1="1846" x2="1080" y2="1846" stroke="#475569" stroke-width="1.2" stroke-dasharray="6 4"/>
+  <text class="lbl" x="608" y="1862" text-anchor="start" fill="#16a34a">[PTE 只读 + 写访问]</text>
+  <line class="ok" x1="855" y1="1866" x2="1007" y2="1866" marker-end="url(#mgr)"/>
+  <text class="mono" x="930.0" y="1860" text-anchor="middle">do_wp_page()</text>
+  <text class="sub" x="1074" y="1883" text-anchor="end">写时复制：复制一份私有页</text>
+  <text class="sub" x="1074" y="1899" text-anchor="end">只剩自己在用时直接改成可写</text>
+  <path class="ok" d="M1005,1940 L978,1940 L978,1950 L1003,1950" marker-end="url(#mgr)"/>
+  <text class="msg" x="972" y="1949" text-anchor="end">set_pte_at()：写入 PTE（物理页号 + 权限）</text>
+  <line class="ret" x1="1005" y1="1980" x2="378" y2="1980" marker-end="url(#mg)"/>
+  <text class="msg" x="692.5" y="1974" text-anchor="middle">层层返回，释放锁</text>
+  <line class="ret" x1="370" y1="2006" x2="228" y2="2006" marker-end="url(#mg)"/>
+  <text class="msg" x="300.0" y="2000" text-anchor="middle">异常返回（iret / eret）</text>
+  <line class="call" x1="220" y1="2032" x2="83" y2="2032" marker-end="url(#mb)"/>
+  <text class="msg" x="152.5" y="2026" text-anchor="middle">重新执行刚才那条指令</text>
+  <text class="sub" x="152.5" y="2047" text-anchor="middle">这次查页表命中，访问成功</text>
+  <path class="ok" d="M230,2066 L257,2066 L257,2076 L232,2076" marker-end="url(#mgr)"/>
+  <text class="msg" x="263" y="2075" text-anchor="start">翻译结果进 TLB：之后访问这一页，内核完全不参与</text>
+  <rect x="20" y="2133" width="520" height="112" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.2"/>
+  <text class="lbl" x="36" y="2157" text-anchor="start" fill="#1d4ed8">一句话总结</text>
+  <text class="sub" x="36" y="2179" text-anchor="start">mmap() 只在 maple tree 里登记一个 VMA 就返回；</text>
+  <text class="sub" x="36" y="2199" text-anchor="start">物理内存等到第一次访问、触发缺页时才按需分配。</text>
+  <text class="sub" x="36" y="2219" text-anchor="start">之后同一页再访问，MMU 直接命中，不再进内核。</text>
+  <rect x="560" y="2133" width="520" height="112" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.2"/>
+  <text class="lbl" x="576" y="2157" text-anchor="start">注：代码打印的步骤 5、6 顺序</text>
+  <text class="sub" x="576" y="2179" text-anchor="start">vma_concepts() 打印的是&quot;5 插入 maple tree → 6 调 f_op-&gt;mmap&quot;。</text>
+  <text class="sub" x="576" y="2199" text-anchor="start">新内核的 mmap_region() 实际先调 f_op-&gt;mmap，成功后才插入树</text>
+  <text class="sub" x="576" y="2219" text-anchor="start">（驱动报错时就不必再把 VMA 从树里摘掉）。图中按实际顺序画。</text>
+</svg>

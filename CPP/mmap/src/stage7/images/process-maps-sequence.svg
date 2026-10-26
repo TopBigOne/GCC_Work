@@ -1,0 +1,137 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1160" width="1000" height="1160">
+  <title>进程映射表时序</title>
+  <style>
+    .t     { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #0f172a; }
+    .mono  { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 11.5px; fill: #0f172a; }
+    .sub   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #475569; }
+    .msg   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #1e293b; }
+    .lbl   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #1e293b; font-weight: 600; }
+    .head  { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 13px; font-weight: 700; fill: #0f172a; }
+    .sec   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 13px; font-weight: 700; fill: #334155; }
+    .panel { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 16px; font-weight: 700; fill: #0f172a; }
+    .msg, .mono, .sub, .lbl { paint-order: stroke; stroke: #ffffff; stroke-width: 4px; stroke-linejoin: round; }
+    .life  { stroke: #94a3b8; stroke-width: 1.2; stroke-dasharray: 5 4; }
+    .call  { stroke: #2563eb; stroke-width: 1.6; fill: none; }
+    .ret   { stroke: #64748b; stroke-width: 1.3; fill: none; stroke-dasharray: 5 4; }
+    .kern  { stroke: #ea580c; stroke-width: 1.6; fill: none; }
+    .ok    { stroke: #16a34a; stroke-width: 1.6; fill: none; }
+    .bad   { stroke: #dc2626; stroke-width: 1.8; fill: none; }
+    .frame { fill: none; stroke: #475569; stroke-width: 1.2; }
+    .tab   { fill: #f1f5f9; stroke: #475569; stroke-width: 1.2; }
+    .p-app { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.5; }
+    .p-k   { fill: #fff7ed; stroke: #ea580c; stroke-width: 1.5; }
+    .p-c   { fill: #ecfdf5; stroke: #16a34a; stroke-width: 1.5; }
+    .p-g   { fill: #f8fafc; stroke: #64748b; stroke-width: 1.5; }
+  </style>
+  <defs>
+    <marker id="mb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker>
+    <marker id="mg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#64748b"/></marker>
+    <marker id="mo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/></marker>
+    <marker id="mgr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#16a34a"/></marker>
+    <marker id="mr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#dc2626"/></marker>
+  </defs>
+  <rect x="0.5" y="0.5" width="999" height="1159" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+  <text class="t" x="500.0" y="36" font-size="21" font-weight="700" text-anchor="middle">process_maps()：在 /proc/self/maps 里找到自己的映射</text>
+  <text class="sub" x="500.0" y="60" text-anchor="middle" style="font-size:13px">建两块匿名映射 → 读 maps 打印全部 VMA → 再读一次，按地址找出两块映射各落在哪个 VMA</text>
+  <line class="life" x1="110" y1="124" x2="110" y2="1032"/>
+  <line class="life" x1="330" y1="124" x2="330" y2="1032"/>
+  <line class="life" x1="570" y1="124" x2="570" y2="1032"/>
+  <line class="life" x1="840" y1="124" x2="840" y2="1032"/>
+  <rect class="p-app" x="42" y="78" width="136" height="46" rx="8"/>
+  <text class="head" x="110" y="98" text-anchor="middle">process_maps()</text>
+  <text class="sub" x="110" y="116" text-anchor="middle">Stage7Kernel</text>
+  <rect class="p-g" x="262" y="78" width="136" height="46" rx="8"/>
+  <text class="head" x="330" y="98" text-anchor="middle">MmapRegion</text>
+  <text class="sub" x="330" y="116" text-anchor="middle">region1 / region2</text>
+  <rect class="p-app" x="502" y="78" width="136" height="46" rx="8"/>
+  <text class="head" x="570" y="98" text-anchor="middle">ProcessMapsReader</text>
+  <text class="sub" x="570" y="116" text-anchor="middle">静态工具类</text>
+  <rect class="p-k" x="772" y="78" width="136" height="46" rx="8"/>
+  <text class="head" x="840" y="98" text-anchor="middle">内核</text>
+  <text class="sub" x="840" y="116" text-anchor="middle">VMA 树 / procfs</text>
+  <line x1="20" y1="136" x2="980" y2="136" stroke="#cbd5e1" stroke-width="1"/>
+  <text class="sec" x="24" y="153" text-anchor="start">① 建两块权限不同的匿名映射</text>
+  <line class="call" x1="115" y1="172" x2="327" y2="172" marker-end="url(#mb)"/>
+  <text class="mono" x="220.0" y="166" text-anchor="middle">region1(4096, RW, PRIVATE|ANON)</text>
+  <line class="kern" x1="335" y1="196" x2="837" y2="196" marker-end="url(#mo)"/>
+  <text class="mono" x="585.0" y="190" text-anchor="middle">mmap()</text>
+  <path class="kern" d="M835,206 L808,206 L808,216 L833,216" marker-end="url(#mo)"/>
+  <text class="msg" x="802" y="215" text-anchor="end">新建 VMA #1：rw-p</text>
+  <line class="call" x1="115" y1="240" x2="327" y2="240" marker-end="url(#mb)"/>
+  <text class="mono" x="220.0" y="234" text-anchor="middle">region2(8192, R, PRIVATE|ANON)</text>
+  <line class="kern" x1="335" y1="264" x2="837" y2="264" marker-end="url(#mo)"/>
+  <text class="mono" x="585.0" y="258" text-anchor="middle">mmap()</text>
+  <path class="kern" d="M835,274 L808,274 L808,284 L833,284" marker-end="url(#mo)"/>
+  <text class="msg" x="802" y="283" text-anchor="end">新建 VMA #2：r--p</text>
+  <text class="sub" x="802" y="299" text-anchor="end">权限不同，即使地址相邻也不会合并</text>
+  <path class="call" d="M115,312 L142,312 L142,322 L117,322" marker-end="url(#mb)"/>
+  <text class="msg" x="148" y="321" text-anchor="start">LOGI 打印两块的起始地址</text>
+  <line x1="20" y1="344" x2="980" y2="344" stroke="#cbd5e1" stroke-width="1"/>
+  <text class="sec" x="24" y="361" text-anchor="start">② print_maps()：打印进程的全部映射</text>
+  <line class="call" x1="115" y1="380" x2="567" y2="380" marker-end="url(#mb)"/>
+  <text class="mono" x="340.0" y="374" text-anchor="middle">print_maps()</text>
+  <path class="call" d="M575,390 L602,390 L602,400 L577,400" marker-end="url(#mb)"/>
+  <text class="mono" x="608" y="399" text-anchor="start">read_maps()</text>
+  <rect class="frame" x="470" y="418" width="510" height="262"/>
+  <path class="tab" d="M470,418 L516,418 L516,432 L508,440 L470,440 z"/>
+  <text class="lbl" x="477" y="434" text-anchor="start">alt</text>
+  <text class="lbl" x="524" y="434" text-anchor="start" fill="#16a34a">[Linux]</text>
+  <line class="kern" x1="575" y1="460" x2="837" y2="460" marker-end="url(#mo)"/>
+  <text class="mono" x="705.0" y="454" text-anchor="middle">fopen(&quot;/proc/self/maps&quot;)</text>
+  <line class="ret" x1="835" y1="484" x2="573" y2="484" marker-end="url(#mg)"/>
+  <text class="mono" x="705.0" y="478" text-anchor="middle">FILE*</text>
+  <rect class="frame" x="490" y="496" width="475" height="108"/>
+  <path class="tab" d="M490,496 L544,496 L544,510 L536,518 L490,518 z"/>
+  <text class="lbl" x="497" y="512" text-anchor="start">loop</text>
+  <text class="lbl" x="552" y="512" text-anchor="start">每一行</text>
+  <line class="kern" x1="575" y1="538" x2="837" y2="538" marker-end="url(#mo)"/>
+  <text class="mono" x="705.0" y="532" text-anchor="middle">fgets(line)</text>
+  <path class="kern" d="M835,548 L808,548 L808,558 L833,558" marker-end="url(#mo)"/>
+  <text class="msg" x="802" y="557" text-anchor="end">现场遍历 VMA 树，生成这一行文本</text>
+  <line class="ret" x1="835" y1="580" x2="573" y2="580" marker-end="url(#mg)"/>
+  <text class="mono" x="705.0" y="574" text-anchor="middle">&quot;7f…-7f… rw-p 00000000 00:00 0&quot;</text>
+  <path class="call" d="M575,588 L602,588 L602,598 L577,598" marker-end="url(#mb)"/>
+  <text class="msg" x="608" y="597" text-anchor="start">sscanf 拆成 7 段 → ProcessMapEntry</text>
+  <line x1="470" y1="610" x2="980" y2="610" stroke="#475569" stroke-width="1.2" stroke-dasharray="6 4"/>
+  <text class="lbl" x="478" y="626" text-anchor="start" fill="#ea580c">[macOS]</text>
+  <line class="bad" x1="575" y1="640" x2="837" y2="640" marker-end="url(#mr)"/>
+  <text class="msg" x="705.0" y="634" text-anchor="middle">fopen 失败：没有 /proc</text>
+  <path class="bad" d="M575,654 L602,654 L602,664 L577,664" marker-end="url(#mr)"/>
+  <text class="msg" x="608" y="663" text-anchor="start">LOGW 提示手动运行 vmmap &lt;pid&gt;，返回空列表</text>
+  <path class="call" d="M575,696 L602,696 L602,706 L577,706" marker-end="url(#mb)"/>
+  <text class="msg" x="608" y="705" text-anchor="start">列表为空 → LOGW (no entries)；否则 LOGD 逐行打印表格</text>
+  <line x1="20" y1="736" x2="980" y2="736" stroke="#cbd5e1" stroke-width="1"/>
+  <text class="sec" x="24" y="753" text-anchor="start">③ 再读一次 maps，按地址查找</text>
+  <line class="call" x1="115" y1="772" x2="567" y2="772" marker-end="url(#mb)"/>
+  <text class="msg" x="120" y="766" text-anchor="start">read_maps()（流程同上，macOS 上会再打印一遍提示）</text>
+  <line class="ret" x1="565" y1="796" x2="113" y2="796" marker-end="url(#mg)"/>
+  <text class="mono" x="340.0" y="790" text-anchor="middle">entries</text>
+  <rect class="frame" x="60" y="808" width="920" height="132"/>
+  <path class="tab" d="M60,808 L106,808 L106,822 L98,830 L60,830 z"/>
+  <text class="lbl" x="67" y="824" text-anchor="start">opt</text>
+  <text class="lbl" x="114" y="824" text-anchor="start">[entries 非空：只有 Linux 会走到这里]</text>
+  <line class="call" x1="115" y1="852" x2="567" y2="852" marker-end="url(#mb)"/>
+  <text class="mono" x="340.0" y="846" text-anchor="middle">find_region(entries, region1.data())</text>
+  <path class="call" d="M575,862 L602,862 L602,872 L577,872" marker-end="url(#mb)"/>
+  <text class="msg" x="608" y="871" text-anchor="start">线性扫描：start ≤ addr &lt; end</text>
+  <text class="sub" x="608" y="887" text-anchor="start">内核里的 find_vma() 做同样的事，只是用树查找</text>
+  <line class="ret" x1="565" y1="902" x2="113" y2="902" marker-end="url(#mg)"/>
+  <text class="msg" x="340.0" y="896" text-anchor="middle">命中的条目 / nullptr</text>
+  <path class="call" d="M115,910 L142,910 L142,920 L117,920" marker-end="url(#mb)"/>
+  <text class="msg" x="148" y="919" text-anchor="start">LOGI found in … rw-p，或 LOGW not found</text>
+  <text class="sub" x="148" y="935" text-anchor="start">region2 再查一次，结果是 r--p</text>
+  <line x1="20" y1="950" x2="980" y2="950" stroke="#cbd5e1" stroke-width="1"/>
+  <text class="sec" x="24" y="967" text-anchor="start">④ 函数返回</text>
+  <line class="call" x1="115" y1="996" x2="327" y2="996" marker-end="url(#mb)"/>
+  <text class="msg" x="220.0" y="990" text-anchor="middle">析构：先 region2，后 region1（与构造顺序相反）</text>
+  <line class="kern" x1="335" y1="1020" x2="837" y2="1020" marker-end="url(#mo)"/>
+  <text class="mono" x="585.0" y="1014" text-anchor="middle">munmap() × 2</text>
+  <rect x="20" y="1048" width="470" height="92" rx="10" fill="#fff7ed" stroke="#ea580c" stroke-width="1.2"/>
+  <text class="lbl" x="36" y="1072" text-anchor="start" fill="#c2410c">/proc/self/maps 不是磁盘上的文件</text>
+  <text class="sub" x="36" y="1094" text-anchor="start">每次读取时，内核遍历当前进程的 VMA 现场生成文本，</text>
+  <text class="sub" x="36" y="1114" text-anchor="start">所以 maps 里的一行就是一个 VMA，读到的永远是最新状态。</text>
+  <rect x="510" y="1048" width="470" height="92" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.2"/>
+  <text class="lbl" x="526" y="1072" text-anchor="start">macOS 上怎么看</text>
+  <text class="sub" x="526" y="1094" text-anchor="start">没有 /proc，read_maps() 两次都返回空列表，</text>
+  <text class="sub" x="526" y="1114" text-anchor="start">程序运行期间另开终端执行 vmmap &lt;pid&gt; 查看。</text>
+</svg>
