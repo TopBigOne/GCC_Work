@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" width="960" height="640">
+  <title>new 的三种写法</title>
+  <style>
+    .t     { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #0f172a; }
+    .mono  { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 12px; fill: #0f172a; font-weight: 600; }
+    .sub   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #475569; }
+    .row   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 13px; font-weight: 700; fill: #334155; }
+    .heap  { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.5; }
+    .place { fill: #ecfdf5; stroke: #059669; stroke-width: 1.5; }
+    .bad   { fill: #fef2f2; stroke: #dc2626; stroke-width: 1.5; }
+    .warn  { fill: #fff7ed; stroke: #ea580c; stroke-width: 1.5; }
+    .gray  { fill: #f8fafc; stroke: #94a3b8; stroke-width: 1.5; }
+    .head  { fill: #ffffff; stroke: #0f172a; stroke-width: 1.8; }
+    .flow  { stroke: #94a3b8; stroke-width: 1.5; fill: none; }
+  </style>
+  <defs>
+    <marker id="m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="959" height="639" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+  <text class="t" x="480" y="36" font-size="20" font-weight="700" text-anchor="middle">new 的三种写法：区别只在「内存从哪来」和「失败怎么办」</text>
+
+  <!-- 语法拆解 -->
+  <rect x="130" y="54" width="810" height="70" rx="10" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text class="mono" x="535" y="84" text-anchor="middle" style="font-size:17px">new ( 额外参数… )  T ( 构造参数… )</text>
+  <text class="sub" x="435" y="110" text-anchor="middle" style="fill:#059669">↑ 交给 operator new：决定内存从哪来</text>
+  <text class="sub" x="680" y="110" text-anchor="middle" style="fill:#2563eb">↑ 交给构造函数：决定对象怎么初始化</text>
+  <text class="row" x="24" y="84">语法</text>
+
+  <!-- 列标题 -->
+  <rect class="head" x="130" y="140" width="260" height="58" rx="8"/>
+  <text class="mono" x="260" y="164" text-anchor="middle" style="font-size:14px">new T()</text>
+  <text class="sub" x="260" y="186" text-anchor="middle">普通 new</text>
+  <rect class="head" x="405" y="140" width="260" height="58" rx="8"/>
+  <text class="mono" x="535" y="164" text-anchor="middle" style="font-size:14px">new (addr) T()</text>
+  <text class="sub" x="535" y="186" text-anchor="middle">placement new（定位 new）</text>
+  <rect class="head" x="680" y="140" width="260" height="58" rx="8"/>
+  <text class="mono" x="810" y="164" text-anchor="middle" style="font-size:14px">new (std::nothrow) T()</text>
+  <text class="sub" x="810" y="186" text-anchor="middle">nothrow new（不抛异常的 new）</text>
+
+  <!-- 行 ①：拿内存 -->
+  <text class="row" x="24" y="246">① 拿内存</text>
+  <rect class="heap" x="130" y="214" width="260" height="76" rx="8"/>
+  <text class="mono" x="260" y="238" text-anchor="middle">operator new(size)</text>
+  <text class="sub" x="260" y="260" text-anchor="middle">去堆上申请 size 字节</text>
+  <rect class="place" x="405" y="214" width="260" height="76" rx="8"/>
+  <text class="mono" x="535" y="238" text-anchor="middle">operator new(size, addr)</text>
+  <text class="sub" x="535" y="260" text-anchor="middle" style="fill:#059669;font-weight:700">不申请，原样返回 addr</text>
+  <text class="sub" x="535" y="278" text-anchor="middle">空间够不够、对不对齐由你保证</text>
+  <rect class="heap" x="680" y="214" width="260" height="76" rx="8"/>
+  <text class="mono" x="810" y="238" text-anchor="middle">operator new(size, nothrow)</text>
+  <text class="sub" x="810" y="260" text-anchor="middle">去堆上申请 size 字节</text>
+
+  <!-- 行：失败时 -->
+  <text class="row" x="24" y="334">内存不够时</text>
+  <rect class="bad" x="130" y="306" width="260" height="62" rx="8"/>
+  <text class="mono" x="260" y="330" text-anchor="middle" style="fill:#dc2626">抛出 std::bad_alloc</text>
+  <text class="sub" x="260" y="352" text-anchor="middle">不 catch 的话程序终止</text>
+  <rect class="gray" x="405" y="306" width="260" height="62" rx="8"/>
+  <text class="sub" x="535" y="330" text-anchor="middle">不分配内存，所以不存在「不够」</text>
+  <text class="sub" x="535" y="352" text-anchor="middle" style="fill:#dc2626">地址无效 / 太小 → 未定义行为</text>
+  <rect class="warn" x="680" y="306" width="260" height="62" rx="8"/>
+  <text class="mono" x="810" y="330" text-anchor="middle" style="fill:#ea580c">返回 nullptr，不抛异常</text>
+  <text class="sub" x="810" y="352" text-anchor="middle">调用方必须检查 if (!p)</text>
+
+  <!-- 行 ②：构造 -->
+  <text class="row" x="24" y="412">② 构造</text>
+  <rect class="gray" x="130" y="384" width="260" height="62" rx="8"/>
+  <text class="sub" x="260" y="410" text-anchor="middle">在拿到的内存上</text>
+  <text class="sub" x="260" y="430" text-anchor="middle">调用 T 的构造函数</text>
+  <rect class="gray" x="405" y="384" width="260" height="62" rx="8"/>
+  <text class="sub" x="535" y="410" text-anchor="middle">在 addr 上调用 T 的构造函数</text>
+  <text class="mono" x="535" y="430" text-anchor="middle" style="font-weight:400">this == addr</text>
+  <rect class="gray" x="680" y="384" width="260" height="62" rx="8"/>
+  <text class="sub" x="810" y="410" text-anchor="middle">成功时同普通 new；</text>
+  <text class="sub" x="810" y="430" text-anchor="middle">失败时不构造，直接返回 nullptr</text>
+
+  <!-- 行：释放 -->
+  <text class="row" x="24" y="494">释放</text>
+  <rect class="heap" x="130" y="462" width="260" height="76" rx="8"/>
+  <text class="mono" x="260" y="486" text-anchor="middle">delete p;</text>
+  <text class="sub" x="260" y="508" text-anchor="middle">= 调用析构函数</text>
+  <text class="sub" x="260" y="526" text-anchor="middle">+ 把内存还给堆</text>
+  <rect class="place" x="405" y="462" width="260" height="76" rx="8"/>
+  <text class="mono" x="535" y="486" text-anchor="middle">p-&gt;~T();</text>
+  <text class="sub" x="535" y="508" text-anchor="middle">只析构；内存交还原主人</text>
+  <text class="sub" x="535" y="526" text-anchor="middle" style="fill:#dc2626;font-weight:700">绝对不能 delete p</text>
+  <rect class="heap" x="680" y="462" width="260" height="76" rx="8"/>
+  <text class="mono" x="810" y="486" text-anchor="middle">delete p;</text>
+  <text class="sub" x="810" y="508" text-anchor="middle">和普通 new 一样</text>
+  <text class="sub" x="810" y="526" text-anchor="middle">（delete nullptr 是安全的空操作）</text>
+
+  <!-- 列内箭头 -->
+  <g>
+    <line class="flow" x1="260" y1="290" x2="260" y2="302" marker-end="url(#m)"/>
+    <line class="flow" x1="260" y1="368" x2="260" y2="380" marker-end="url(#m)"/>
+    <line class="flow" x1="260" y1="446" x2="260" y2="458" marker-end="url(#m)"/>
+    <line class="flow" x1="535" y1="290" x2="535" y2="302" marker-end="url(#m)"/>
+    <line class="flow" x1="535" y1="368" x2="535" y2="380" marker-end="url(#m)"/>
+    <line class="flow" x1="535" y1="446" x2="535" y2="458" marker-end="url(#m)"/>
+    <line class="flow" x1="810" y1="290" x2="810" y2="302" marker-end="url(#m)"/>
+    <line class="flow" x1="810" y1="368" x2="810" y2="380" marker-end="url(#m)"/>
+    <line class="flow" x1="810" y1="446" x2="810" y2="458" marker-end="url(#m)"/>
+  </g>
+
+  <!-- 底部：实测 + 典型用途 -->
+  <rect x="24" y="556" width="916" height="68" rx="8" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text class="sub" x="40" y="580" style="font-size:12.5px">本机实测：申请 1 EB 内存时，普通 new 抛出 std::bad_alloc，nothrow new 返回 0x0；placement new 构造出的对象 this 正好等于 buf 的地址。</text>
+  <text class="sub" x="40" y="604" style="font-size:12.5px">典型用途：普通 new → 日常创建对象；placement new → 共享内存、内存池、std::vector 内部；nothrow new → 禁用异常的代码。</text>
+</svg>

@@ -11,11 +11,11 @@
  * 其他进程立刻能看到，数据不需要像管道/socket 那样在内核和用户态之间拷贝。
  *
  * @par 实际应用
- * - Chrome 多进程架构：渲染进程把绘制结果放进共享内存交给 GPU/浏览器进程，避免大块像素拷贝
- * - Android：ashmem / memfd + Binder 传 fd，SurfaceFlinger 与 App 共享图形缓冲区
- * - 数据库：PostgreSQL 的 shared_buffers 由多个后端进程共享
- * - 高频交易、行情分发：同机进程间用共享内存环形队列做微秒级低延迟通信
- * - 音视频：采集进程和编码进程之间共享帧缓冲区
+ * - Chrome 多进程架构 ：渲染进程把绘制结果放进共享内存交给 GPU/浏览器进程，避免大块像素拷贝
+ * - Android         ：ashmem / memfd + Binder 传 fd，SurfaceFlinger 与 App 共享图形缓冲区
+ * - 数据库           ：PostgreSQL 的 shared_buffers 由多个后端进程共享
+ * - 高频交易、行情分发 ：同机进程间用共享内存环形队列做微秒级低延迟通信
+ * - 音视频           ：采集进程和编码进程之间共享帧缓冲区
  */
 #pragma once
 
@@ -55,17 +55,18 @@ namespace mmap_learn {
  *       类似对文件执行 unlink。
  */
 class SharedMemory {
-    void *addr_ = MAP_FAILED; ///< 映射起始地址，无效时为 MAP_FAILED
-    size_t size_ = 0;         ///< 映射长度（字节）
-    std::string name_;        ///< 共享内存名字，以 '/' 开头
-    bool owner_ = false;      ///< 是否为创建者，创建者析构时负责 shm_unlink
+    void *mapped_addr_ = MAP_FAILED; ///< mmap 实际返回的映射起始地址，无效时为 MAP_FAILED
+    size_t size_ = 0;                ///< 映射长度（字节）
+    std::string name_;               ///< 共享内存名字，以 '/' 开头
+    bool owner_ = false;             ///< 是否为创建者，创建者析构时负责 shm_unlink
 
 public:
     /**
      * @brief 创建或打开一块 POSIX 共享内存并映射到当前进程。
-     * @param name   共享内存名字，必须以 '/' 开头，如 "/mmap_learn_stage4"
-     * @param size   映射长度（字节）；创建时会用 ftruncate 把共享内存对象设为该大小
-     * @param create true 表示创建（O_CREAT，成为 owner）；false 表示打开已存在的对象
+     * ------------------------------------------------------
+     * @param name     共享内存名字，必须以 '/' 开头，如 "/mmap_learn_stage4"
+     * @param size     映射长度（字节）；创建时会用 ftruncate 把共享内存对象设为该大小
+     * @param create  true 表示创建（O_CREAT，成为 owner）；false 表示打开已存在的对象
      * @throw std::runtime_error shm_open、ftruncate 或 mmap 失败时抛出；创建过程中失败会先 shm_unlink 清理
      */
     SharedMemory(const char *name, size_t size, bool create);
@@ -117,7 +118,7 @@ public:
      */
     template <typename T>
     T *as() {
-        return static_cast<T *>(addr_);
+        return static_cast<T *>(mapped_addr_);
     }
 
     /**
@@ -127,7 +128,7 @@ public:
      */
     template <typename T>
     const T *as() const {
-        return static_cast<const T *>(addr_);
+        return static_cast<const T *>(mapped_addr_);
     }
 };
 
