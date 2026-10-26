@@ -1,0 +1,162 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" width="1000" height="640">
+  <title>MAP_SHARED 一页的时间线</title>
+  <style>
+    .t     { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #0f172a; }
+    .mono  { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 11px; fill: #334155; }
+    .sub   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #475569; }
+    .lbl   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #1e293b; font-weight: 600; }
+    .row   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 13px; font-weight: 700; fill: #0f172a; }
+    .act   { fill: #f8fafc; stroke: #64748b; stroke-width: 1.2; }
+    .none  { fill: #f8fafc; stroke: #94a3b8; stroke-width: 1.2; stroke-dasharray: 5 4; }
+    .clean { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.5; }
+    .dirty { fill: #fff7ed; stroke: #ea580c; stroke-width: 1.5; }
+    .disk  { fill: #f1f5f9; stroke: #475569; stroke-width: 1.5; }
+    .new   { fill: #ecfdf5; stroke: #16a34a; stroke-width: 1.5; }
+    .a-blue { stroke: #2563eb; stroke-width: 2; fill: none; }
+    .a-or   { stroke: #ea580c; stroke-width: 2; fill: none; }
+    .a-gray { stroke: #64748b; stroke-width: 2; fill: none; }
+    .a-g    { stroke: #16a34a; stroke-width: 2; fill: none; }
+  </style>
+  <defs>
+    <marker id="mb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker>
+    <marker id="mo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/></marker>
+    <marker id="mg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#64748b"/></marker>
+    <marker id="mgr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#16a34a"/></marker>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="999" height="639" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+  <text class="t" x="500" y="36" font-size="21" font-weight="700" text-anchor="middle">MAP_SHARED 映射里一页的一生：mmap → 缺页 → 变脏 → 回写</text>
+  <text class="sub" x="500" y="60" text-anchor="middle" style="font-size:13px">从左到右是时间；每一列看同一时刻页表、page cache、磁盘三层各是什么状态</text>
+
+  <!-- 时间轴 -->
+  <line class="a-gray" x1="135" y1="84" x2="984" y2="84" marker-end="url(#mg)"/>
+  <text class="sub" x="125" y="88" text-anchor="end">时间</text>
+
+  <!-- 行标签 -->
+  <text class="row" x="22" y="130">用户态动作</text>
+  <text class="row" x="22" y="205">页表 PTE</text>
+  <text class="row" x="22" y="280">page cache</text>
+  <text class="row" x="22" y="355">磁盘文件</text>
+  <line x1="20" y1="168" x2="985" y2="168" stroke="#e2e8f0"/>
+  <line x1="20" y1="243" x2="985" y2="243" stroke="#e2e8f0"/>
+  <line x1="20" y1="318" x2="985" y2="318" stroke="#e2e8f0"/>
+
+  <!-- ① mmap -->
+  <rect class="act" x="135" y="100" width="130" height="58" rx="8"/>
+  <text class="lbl" x="200" y="122" text-anchor="middle">① mmap</text>
+  <text class="sub" x="200" y="144" text-anchor="middle">只登记 VMA</text>
+  <rect class="none" x="135" y="176" width="130" height="58" rx="8"/>
+  <text class="sub" x="200" y="210" text-anchor="middle">还没有页表项</text>
+  <rect class="none" x="135" y="251" width="130" height="58" rx="8"/>
+  <text class="sub" x="200" y="285" text-anchor="middle">还没有这一页</text>
+  <rect class="disk" x="135" y="326" width="130" height="58" rx="8"/>
+  <text class="lbl" x="200" y="350" text-anchor="middle">内容 A</text>
+  <text class="sub" x="200" y="370" text-anchor="middle">物理内存未分配</text>
+
+  <!-- ② 首次读 -->
+  <rect class="act" x="277" y="100" width="130" height="58" rx="8"/>
+  <text class="lbl" x="342" y="122" text-anchor="middle">② 首次读 p[0]</text>
+  <text class="sub" x="342" y="144" text-anchor="middle">缺页（major）</text>
+  <rect class="clean" x="277" y="176" width="130" height="58" rx="8"/>
+  <text class="lbl" x="342" y="198" text-anchor="middle">指向该物理页</text>
+  <text class="sub" x="342" y="220" text-anchor="middle">先设为只读</text>
+  <rect class="clean" x="277" y="251" width="130" height="58" rx="8"/>
+  <text class="lbl" x="342" y="273" text-anchor="middle">干净页 A</text>
+  <text class="sub" x="342" y="295" text-anchor="middle">内容 = 磁盘</text>
+  <rect class="disk" x="277" y="326" width="130" height="58" rx="8"/>
+  <text class="lbl" x="342" y="350" text-anchor="middle">内容 A</text>
+  <path class="a-blue" d="M342,326 L342,313" marker-end="url(#mb)"/>
+  <text class="sub" x="342" y="370" text-anchor="middle">读入 page cache</text>
+
+  <!-- ③ 首次写 -->
+  <rect class="act" x="419" y="100" width="130" height="58" rx="8"/>
+  <text class="lbl" x="484" y="122" text-anchor="middle">③ 写 p[0]='x'</text>
+  <text class="sub" x="484" y="144" text-anchor="middle">写保护缺页</text>
+  <rect class="dirty" x="419" y="176" width="130" height="58" rx="8"/>
+  <text class="lbl" x="484" y="198" text-anchor="middle">改为可写</text>
+  <text class="mono" x="484" y="220" text-anchor="middle">D 位 = 1</text>
+  <rect class="dirty" x="419" y="251" width="130" height="58" rx="8"/>
+  <text class="lbl" x="484" y="273" text-anchor="middle">脏页 x</text>
+  <text class="mono" x="484" y="295" text-anchor="middle">PG_dirty = 1</text>
+  <rect class="disk" x="419" y="326" width="130" height="58" rx="8"/>
+  <text class="lbl" x="484" y="350" text-anchor="middle">内容 A（旧）</text>
+  <text class="sub" x="484" y="370" text-anchor="middle">比内存旧</text>
+
+  <!-- ④ 其他进程 -->
+  <rect class="act" x="561" y="100" width="130" height="58" rx="8"/>
+  <text class="lbl" x="626" y="122" text-anchor="middle">④ 进程 B 读</text>
+  <text class="sub" x="626" y="144" text-anchor="middle">缺页（minor）</text>
+  <rect class="dirty" x="561" y="176" width="130" height="58" rx="8"/>
+  <text class="lbl" x="626" y="198" text-anchor="middle">A、B 两张页表</text>
+  <text class="sub" x="626" y="220" text-anchor="middle">指向同一物理页</text>
+  <rect class="dirty" x="561" y="251" width="130" height="58" rx="8"/>
+  <text class="lbl" x="626" y="273" text-anchor="middle">脏页 x</text>
+  <text class="sub" x="626" y="295" text-anchor="middle">B 立即读到 x</text>
+  <rect class="disk" x="561" y="326" width="130" height="58" rx="8"/>
+  <text class="lbl" x="626" y="350" text-anchor="middle">内容 A（旧）</text>
+
+  <!-- ⑤ 回写 -->
+  <rect class="act" x="703" y="100" width="130" height="58" rx="8"/>
+  <text class="mono" x="768" y="122" text-anchor="middle" style="font-weight:600">⑤ msync(MS_SYNC)</text>
+  <text class="sub" x="768" y="144" text-anchor="middle">或约 30 秒后自动</text>
+  <rect class="clean" x="703" y="176" width="130" height="58" rx="8"/>
+  <text class="lbl" x="768" y="198" text-anchor="middle">重新设为只读</text>
+  <text class="sub" x="768" y="220" text-anchor="middle">以便追踪下次写</text>
+  <rect class="clean" x="703" y="251" width="130" height="58" rx="8"/>
+  <text class="lbl" x="768" y="273" text-anchor="middle">干净页 x</text>
+  <text class="mono" x="768" y="295" text-anchor="middle">PG_dirty = 0</text>
+  <rect class="new" x="703" y="326" width="130" height="58" rx="8"/>
+  <text class="lbl" x="768" y="350" text-anchor="middle">内容 x（新）</text>
+  <text class="sub" x="768" y="370" text-anchor="middle">已落盘</text>
+  <path class="a-g" d="M768,309 L768,322" marker-end="url(#mgr)"/>
+
+  <!-- ⑥ munmap / close -->
+  <rect class="act" x="845" y="100" width="140" height="58" rx="8"/>
+  <text class="lbl" x="915" y="122" text-anchor="middle">⑥ munmap / close</text>
+  <text class="sub" x="915" y="144" text-anchor="middle">不触发回写</text>
+  <rect class="none" x="845" y="176" width="140" height="58" rx="8"/>
+  <text class="sub" x="915" y="210" text-anchor="middle">页表项被删除</text>
+  <rect class="clean" x="845" y="251" width="140" height="58" rx="8"/>
+  <text class="lbl" x="915" y="273" text-anchor="middle">页仍留在 cache</text>
+  <text class="sub" x="915" y="295" text-anchor="middle">没刷过就照常回写</text>
+  <rect class="new" x="845" y="326" width="140" height="58" rx="8"/>
+  <text class="lbl" x="915" y="350" text-anchor="middle">内容 x</text>
+
+  <!-- MAP_PRIVATE 分支 -->
+  <line x1="20" y1="404" x2="985" y2="404" stroke="#cbd5e1" stroke-dasharray="6 4"/>
+  <text class="t" x="22" y="432" font-size="14" font-weight="700">换成 MAP_PRIVATE：第 ③ 步变成写时复制，文件永远不会被改</text>
+
+  <rect class="act" x="22" y="456" width="130" height="58" rx="8"/>
+  <text class="lbl" x="87" y="478" text-anchor="middle">进程的 PTE</text>
+  <text class="sub" x="87" y="500" text-anchor="middle">写后改为可写</text>
+
+  <rect class="dirty" x="232" y="456" width="150" height="58" rx="8"/>
+  <text class="lbl" x="307" y="478" text-anchor="middle">私有匿名页 x</text>
+  <text class="sub" x="307" y="500" text-anchor="middle">只能换出到 swap</text>
+
+  <rect class="clean" x="472" y="456" width="150" height="58" rx="8"/>
+  <text class="lbl" x="547" y="478" text-anchor="middle">page cache 页 A</text>
+  <text class="sub" x="547" y="500" text-anchor="middle">保持不变</text>
+
+  <rect class="disk" x="472" y="552" width="150" height="50" rx="8"/>
+  <text class="lbl" x="547" y="582" text-anchor="middle">磁盘 内容 A</text>
+
+  <line class="a-blue" x1="152" y1="485" x2="228" y2="485" marker-end="url(#mb)"/>
+  <text class="sub" x="190" y="476" text-anchor="middle">指向</text>
+  <line class="a-or" x1="472" y1="485" x2="386" y2="485" stroke-dasharray="5 4" marker-end="url(#mo)"/>
+  <text class="lbl" x="429" y="476" text-anchor="middle">COW 复制</text>
+  <line class="a-gray" x1="547" y1="514" x2="547" y2="548" stroke-dasharray="4 4"/>
+  <text class="sub" x="307" y="540" text-anchor="middle">与文件断开：msync、flusher</text>
+  <text class="sub" x="307" y="558" text-anchor="middle">都不会把 x 写回磁盘</text>
+
+  <!-- 容易误解 -->
+  <rect x="672" y="446" width="313" height="160" rx="10" fill="#fff7ed" stroke="#ea580c" stroke-width="1.2"/>
+  <text class="lbl" x="688" y="470">容易误解的几点</text>
+  <text class="sub" x="688" y="494">• munmap / close 不会回写，脏页留在 cache</text>
+  <text class="sub" x="688" y="516">• 进程崩溃不丢数据：脏页属于内核</text>
+  <text class="sub" x="688" y="538">• 断电 / 内核崩溃会丢掉还没回写的脏页</text>
+  <text class="sub" x="688" y="560">• Linux 上 MS_ASYNC 基本什么都不做</text>
+  <text class="sub" x="688" y="582">• macOS 真落盘要 fcntl(F_FULLFSYNC)</text>
+
+  <text class="sub" x="22" y="628" style="font-size:11px">30 秒为 Linux 默认的 dirty_expire_centisecs；回写时内核会把共享页重新设为只读，下一次写再触发缺页、重新标脏。</text>
+</svg>
