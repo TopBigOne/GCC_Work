@@ -1,0 +1,169 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1080" width="1000" height="1080">
+  <title>Benchmark 运行时序</title>
+  <style>
+    .t     { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #0f172a; }
+    .mono  { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 11.5px; fill: #0f172a; }
+    .sub   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #475569; }
+    .msg   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #1e293b; }
+    .lbl   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #1e293b; font-weight: 600; }
+    .head  { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 13px; font-weight: 700; fill: #0f172a; }
+    .life  { stroke: #94a3b8; stroke-width: 1.2; stroke-dasharray: 5 4; }
+    .act   { fill: #ffffff; stroke: #64748b; stroke-width: 1.2; }
+    .call  { stroke: #2563eb; stroke-width: 1.6; fill: none; }
+    .ret   { stroke: #64748b; stroke-width: 1.3; fill: none; stroke-dasharray: 5 4; }
+    .kern  { stroke: #ea580c; stroke-width: 1.6; fill: none; }
+    .cache { stroke: #16a34a; stroke-width: 1.6; fill: none; }
+    .frame { fill: none; stroke: #475569; stroke-width: 1.2; }
+    .tab   { fill: #f1f5f9; stroke: #475569; stroke-width: 1.2; }
+    .p-app { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.5; }
+    .p-k   { fill: #fff7ed; stroke: #ea580c; stroke-width: 1.5; }
+    .p-c   { fill: #ecfdf5; stroke: #16a34a; stroke-width: 1.5; }
+  </style>
+  <defs>
+    <marker id="mb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker>
+    <marker id="mg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#64748b"/></marker>
+    <marker id="mo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/></marker>
+    <marker id="mgr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#16a34a"/></marker>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="999" height="1079" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+  <text class="t" x="500" y="36" font-size="21" font-weight="700" text-anchor="middle">一次 Benchmark::run() 的时序：mmap 版 vs read() 版</text>
+  <text class="sub" x="500" y="60" text-anchor="middle" style="font-size:13px">以 sequential_comparison 为例：10 MB 文件，循环 5 轮；只有 ② 到 ④ 之间的部分计入耗时</text>
+
+  <!-- 参与者 -->
+  <rect class="p-app" x="20"  y="78" width="140" height="46" rx="8"/>
+  <text class="head" x="90"  y="98" text-anchor="middle">Stage8Benchmark</text>
+  <text class="sub"  x="90"  y="116" text-anchor="middle">三个对比函数</text>
+
+  <rect class="p-app" x="200" y="78" width="140" height="46" rx="8"/>
+  <text class="head" x="270" y="98" text-anchor="middle">Benchmark::run()</text>
+  <text class="sub"  x="270" y="116" text-anchor="middle">基类模板方法</text>
+
+  <rect class="p-app" x="390" y="78" width="160" height="46" rx="8"/>
+  <text class="head" x="470" y="98" text-anchor="middle">子类</text>
+  <text class="sub"  x="470" y="116" text-anchor="middle">MmapSequentialRead 等</text>
+
+  <rect class="p-k"   x="620" y="78" width="140" height="46" rx="8"/>
+  <text class="head" x="690" y="98" text-anchor="middle">内核</text>
+  <text class="sub"  x="690" y="116" text-anchor="middle">系统调用 / 缺页处理</text>
+
+  <rect class="p-c"   x="820" y="78" width="140" height="46" rx="8"/>
+  <text class="head" x="890" y="98" text-anchor="middle">page cache</text>
+  <text class="sub"  x="890" y="116" text-anchor="middle">文件数据所在的物理页</text>
+
+  <!-- 计时区间（放在最底层，避免盖住激活条） -->
+  <rect x="180" y="322" width="795" height="484" rx="6" fill="#fefce8" stroke="#ca8a04" stroke-width="1" stroke-dasharray="6 4"/>
+  <text class="lbl" x="190" y="340" fill="#a16207">⏱ 计时区间</text>
+
+  <!-- 生命线 -->
+  <line class="life" x1="90"  y1="124" x2="90"  y2="935"/>
+  <line class="life" x1="270" y1="124" x2="270" y2="935"/>
+  <line class="life" x1="470" y1="124" x2="470" y2="935"/>
+  <line class="life" x1="690" y1="124" x2="690" y2="935"/>
+  <line class="life" x1="890" y1="124" x2="890" y2="935"/>
+
+  <!-- 激活条 -->
+  <rect class="act" x="265" y="150" width="10" height="752"/>
+  <rect class="act" x="465" y="180" width="10" height="122"/>
+  <rect class="act" x="465" y="422" width="10" height="330"/>
+  <rect class="act" x="465" y="830" width="10" height="38"/>
+
+  <!-- run() -->
+  <line class="call" x1="90" y1="150" x2="263" y2="150" marker-end="url(#mb)"/>
+  <text class="mono" x="180" y="144" text-anchor="middle">run()</text>
+
+  <!-- ① setup -->
+  <line class="call" x1="275" y1="180" x2="463" y2="180" marker-end="url(#mb)"/>
+  <text class="msg" x="370" y="174" text-anchor="middle">① setup()</text>
+
+  <line class="kern" x1="475" y1="210" x2="688" y2="210" marker-end="url(#mo)"/>
+  <text class="msg" x="582" y="204" text-anchor="middle">open + pwrite 写满测试文件</text>
+  <line class="cache" x1="690" y1="236" x2="888" y2="236" marker-end="url(#mgr)"/>
+  <text class="msg" x="790" y="230" text-anchor="middle">刚写的页留在 page cache</text>
+  <text class="sub" x="790" y="252" text-anchor="middle">→ 后面测的是"热缓存"</text>
+
+  <line class="kern" x1="475" y1="276" x2="688" y2="276" marker-end="url(#mo)"/>
+  <text class="msg" x="582" y="270" text-anchor="middle">open()；mmap 版再调 mmap()</text>
+  <line class="ret" x1="688" y1="298" x2="477" y2="298" marker-end="url(#mg)"/>
+  <text class="sub" x="582" y="314" text-anchor="middle">返回 fd / 映射地址（mmap 只建 VMA，不读数据）</text>
+
+  <!-- ② start -->
+  <path class="call" d="M275,358 L310,358 L310,370 L277,370" marker-end="url(#mb)"/>
+  <text class="msg" x="316" y="368">② start = now()</text>
+
+  <!-- loop -->
+  <rect class="frame" x="205" y="380" width="760" height="388"/>
+  <path class="tab" d="M205,380 L285,380 L285,394 L277,402 L205,402 z"/>
+  <text class="lbl" x="213" y="396">loop</text>
+  <text class="sub" x="296" y="396">[iterations 次，这里是 5 轮]</text>
+
+  <line class="call" x1="275" y1="422" x2="463" y2="422" marker-end="url(#mb)"/>
+  <text class="msg" x="370" y="416" text-anchor="middle">③ execute()</text>
+
+  <!-- alt -->
+  <rect class="frame" x="420" y="432" width="535" height="326"/>
+  <path class="tab" d="M420,432 L478,432 L478,446 L470,454 L420,454 z"/>
+  <text class="lbl" x="428" y="448">alt</text>
+  <text class="lbl" x="488" y="448" fill="#2563eb">[mmap 版]</text>
+
+  <path class="call" d="M475,474 L510,474 L510,486 L477,486" marker-end="url(#mb)"/>
+  <text class="msg" x="516" y="484">sum += ptr[i]：就是普通的读内存</text>
+
+  <!-- opt：只在第 1 轮 -->
+  <rect class="frame" x="440" y="500" width="500" height="96" stroke-dasharray="4 3"/>
+  <text class="sub" x="448" y="516">只在第 1 轮：每页第一次被访问时</text>
+  <line class="kern" x1="475" y1="546" x2="688" y2="546" marker-end="url(#mo)"/>
+  <text class="msg" x="582" y="540" text-anchor="middle">缺页（minor fault）</text>
+  <line class="cache" x1="690" y1="566" x2="888" y2="566" marker-end="url(#mgr)"/>
+  <text class="msg" x="790" y="560" text-anchor="middle">页已在缓存：只建页表项</text>
+  <line class="ret" x1="688" y1="584" x2="477" y2="584" marker-end="url(#mg)"/>
+  <text class="sub" x="700" y="589">不拷贝数据</text>
+
+  <!-- alt 分隔 -->
+  <line x1="420" y1="610" x2="955" y2="610" stroke="#475569" stroke-width="1.2" stroke-dasharray="6 4"/>
+  <text class="lbl" x="428" y="628" fill="#ea580c">[read() 版]</text>
+
+  <line class="kern" x1="475" y1="650" x2="688" y2="650" marker-end="url(#mo)"/>
+  <text class="mono" x="582" y="644" text-anchor="middle">lseek(fd, 0)</text>
+
+  <rect class="frame" x="440" y="662" width="500" height="86" stroke-dasharray="4 3"/>
+  <text class="sub" x="448" y="678">每轮循环 160 次（10 MB ÷ 64 KB）</text>
+  <line class="kern" x1="475" y1="706" x2="688" y2="706" marker-end="url(#mo)"/>
+  <text class="mono" x="582" y="700" text-anchor="middle">read(fd, buf, 64K)</text>
+  <line class="cache" x1="888" y1="732" x2="477" y2="732" marker-end="url(#mgr)"/>
+  <text class="msg" x="790" y="726" text-anchor="middle">拷贝 64 KB 到 buf</text>
+
+  <!-- ④ end -->
+  <path class="call" d="M275,782 L310,782 L310,794 L277,794" marker-end="url(#mb)"/>
+  <text class="msg" x="316" y="792">④ end = now()</text>
+
+  <!-- ⑤ teardown -->
+  <line class="call" x1="275" y1="830" x2="463" y2="830" marker-end="url(#mb)"/>
+  <text class="msg" x="370" y="824" text-anchor="middle">⑤ teardown()</text>
+  <line class="kern" x1="475" y1="854" x2="688" y2="854" marker-end="url(#mo)"/>
+  <text class="msg" x="582" y="848" text-anchor="middle">munmap / close / unlink</text>
+
+  <!-- 结果 -->
+  <line class="ret" x1="263" y1="896" x2="92" y2="896" marker-end="url(#mg)"/>
+  <text class="msg" x="180" y="890" text-anchor="middle">LOGI 打印一行结果</text>
+  <text class="sub" x="180" y="918" text-anchor="middle">吞吐量 = 字节数 ÷ 耗时</text>
+
+  <!-- 结论 -->
+  <rect x="20" y="952" width="300" height="108" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.2"/>
+  <text class="lbl" x="36" y="976" fill="#1d4ed8">mmap 版每一轮</text>
+  <text class="sub" x="36" y="998">第 1 轮：每页一次缺页，只建页表项</text>
+  <text class="sub" x="36" y="1018">第 2～5 轮：页表已建好，</text>
+  <text class="sub" x="36" y="1038">完全不进内核，纯内存读取</text>
+
+  <rect x="350" y="952" width="300" height="108" rx="10" fill="#fff7ed" stroke="#ea580c" stroke-width="1.2"/>
+  <text class="lbl" x="366" y="976" fill="#c2410c">read() 版每一轮</text>
+  <text class="sub" x="366" y="998">1 次 lseek + 160 次 read 系统调用</text>
+  <text class="sub" x="366" y="1018">每次 read 都把 64 KB 从 page cache</text>
+  <text class="sub" x="366" y="1038">拷贝到用户态 buf，5 轮都一样</text>
+
+  <rect x="680" y="952" width="300" height="108" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.2"/>
+  <text class="lbl" x="696" y="976">不计时的部分</text>
+  <text class="sub" x="696" y="998">① setup 里建文件、open、mmap</text>
+  <text class="sub" x="696" y="1018">⑤ teardown 里 munmap、close、删文件</text>
+  <text class="sub" x="696" y="1038">随机读版把 read 换成 10 万次 lseek+read</text>
+</svg>

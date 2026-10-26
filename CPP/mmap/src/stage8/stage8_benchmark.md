@@ -39,20 +39,34 @@ cmake -S . -B build && cmake --build build
 
 ---
 
+## 时序图：一次 run() 里发生了什么
+
+![Benchmark 运行时序](images/benchmark-sequence.svg)
+
+上面的全景图讲"数据怎么走"，这张图按时间顺序讲"谁在什么时候调用了谁"，从上往下看：
+
+- **① setup()**：建测试文件、`open`，mmap 版再调一次 `mmap`。刚写进去的数据留在 page cache 里，所以后面测的是热缓存。mmap 这时只建 VMA，不读任何数据。
+- **② start → ④ end**（黄色底色）：只有这一段计入耗时。中间的 `loop` 跑 `iterations` 轮 `execute()`，`alt` 框里分成两种情况：
+  - **mmap 版**：读 `ptr[i]` 就是普通的读内存。只有第 1 轮里每页第一次被访问时会缺页，内核发现页已经在 page cache 里，只补一个页表项，不拷贝数据。第 2 轮以后完全不进内核。
+  - **read() 版**：每一轮都要 `lseek` 回到开头，再调 160 次 `read`，每次内核都把 64 KB 从 page cache 拷贝到 `buf`。5 轮里的每一轮都是这样。
+- **⑤ teardown()**：`munmap`、`close`、删文件，这部分不计时。最后 `run()` 用 ② 到 ④ 的时间算出吞吐量，用 `LOGI` 打印一行结果。
+
+---
+
 ## 知识点逐个讲
 
 ### 1. read() 的成本：系统调用 + 拷贝
 
 每次 `read()` 都是一次用户态 → 内核态 → 用户态的切换，再加上一次 `page cache → buf` 的内存拷贝。
 
-- 顺序读时，代码用 64KB 的缓冲区（[`ReadSequentialRead::execute`](stage8_benchmark.cpp#L121)），10MB 文件只需要 160 次系统调用，切换成本被摊得很薄；64KB 的 `buf` 还能留在 CPU 缓存里，拷贝也不算贵。
-- 随机读时，每读 4 字节都要 `lseek` + `read` 两次系统调用（[`ReadRandomRead::execute`](stage8_benchmark.cpp#L223)），10 万次读取就是 **20 万次**系统调用，成本完全被切换开销主导。
+- 顺序读时，代码用 64KB 的缓冲区（[`ReadSequentialRead::execute`](read_sequential_read.cpp#L20)），10MB 文件只需要 160 次系统调用，切换成本被摊得很薄；64KB 的 `buf` 还能留在 CPU 缓存里，拷贝也不算贵。
+- 随机读时，每读 4 字节都要 `lseek` + `read` 两次系统调用（[`ReadRandomRead::execute`](read_random_read.cpp#L30)），10 万次读取就是 **20 万次**系统调用，成本完全被切换开销主导。
 
 ### 2. mmap 的成本：缺页 + TLB + 映射本身
 
 mmap 不是"没有成本"，只是成本出现在别的地方：
 
-- **mmap / munmap 本身**：建立和拆除映射要修改进程的地址空间（VMA）和页表。本项目把它放在 `setup()` / `teardown()` 里，不计入时间（[`MmapSequentialRead::setup`](stage8_benchmark.cpp#L77)）。
+- **mmap / munmap 本身**：建立和拆除映射要修改进程的地址空间（VMA）和页表。本项目把它放在 `setup()` / `teardown()` 里，不计入时间（[`MmapSequentialRead::setup`](mmap_sequential_read.cpp#L12)）。
 - **缺页**：映射建立后页表是空的，每一页第一次被访问都要陷入内核处理一次缺页。Apple Silicon 的页大小是 16KB，10MB 文件大约要 640 次缺页。缺页只发生在**第一轮** `execute()`，后面几轮就是纯内存访问。
 - **TLB**：TLB 是 CPU 里缓存"虚拟地址 → 物理地址"的小表。映射越大、访问越分散，TLB 越容易 miss，每次 miss 都要去查页表。
 
@@ -67,21 +81,21 @@ mmap 不是"没有成本"，只是成本出现在别的地方：
 
 ### 4. 热缓存 vs 冷缓存
 
-测试文件是 [`Benchmark::create_test_file`](stage8_benchmark.cpp#L22) 刚用 `pwrite` 写出来的，内容还完整地留在 page cache 里。所以这组 benchmark 测的是**热缓存**：完全没有磁盘 I/O，比的只是"page cache 到你的代码"这一段。
+测试文件是 [`Benchmark::create_test_file`](benchmark.cpp#L22) 刚用 `pwrite` 写出来的，内容还完整地留在 page cache 里。所以这组 benchmark 测的是**热缓存**：完全没有磁盘 I/O，比的只是"page cache 到你的代码"这一段。
 
-如果文件不在内存里（**冷缓存**），两条路径都要先从磁盘读，磁盘 I/O 会成为主要成本，mmap 和 read 的差距会被大幅冲淡。程序开头打印的 `Note: hot-cache benchmark` 就是在提醒这一点（[`Stage8Benchmark::run_all`](stage8_benchmark.cpp#L324)）。
+如果文件不在内存里（**冷缓存**），两条路径都要先从磁盘读，磁盘 I/O 会成为主要成本，mmap 和 read 的差距会被大幅冲淡。程序开头打印的 `Note: hot-cache benchmark` 就是在提醒这一点（[`Stage8Benchmark::run_all`](stage8_benchmark.cpp#L92)）。
 
 ### 5. 模板方法：把"测什么"和"怎么测"分开
 
 ![Benchmark 模板方法](images/benchmark-template.svg)
 
-[`Benchmark`](stage8_benchmark.h#L49) 是一个抽象基类，[`run()`](stage8_benchmark.cpp#L49) 把流程固定成：
+[`Benchmark`](benchmark.h#L27) 是一个抽象基类，[`run()`](benchmark.cpp#L49) 把流程固定成：
 
 ```
 setup() → 开始计时 → execute() × N → 停止计时 → teardown() → 算吞吐量
 ```
 
-四个子类只需要实现三个钩子 [`setup`](stage8_benchmark.h#L63) / [`execute`](stage8_benchmark.h#L66) / [`teardown`](stage8_benchmark.h#L69)，以及可选的 [`bytes_processed`](stage8_benchmark.h#L90)。好处是：
+四个子类只需要实现三个钩子 [`setup`](benchmark.h#L41) / [`execute`](benchmark.h#L44) / [`teardown`](benchmark.h#L47)，以及可选的 [`bytes_processed`](benchmark.h#L68)。好处是：
 
 - **计时口径统一**：只有 `execute()` 被计时，建文件、建映射这些准备工作不会混进结果。
 - **加新测试很便宜**：想测 `pread`、`MAP_POPULATE`，只要再写一个子类。
@@ -94,11 +108,11 @@ setup() → 开始计时 → execute() × N → 停止计时 → teardown() → 
 
 | 措施                                                        | 防的是什么                                 | 代码位置                                                                                                      |
 |-------------------------------------------------------------|--------------------------------------------|---------------------------------------------------------------------------------------------------------------|
-| 结果累加进 `volatile uint64_t sink_`                        | 编译器发现结果没用，把整个循环删掉         | [`sink_`](stage8_benchmark.h#L60)、[`MmapSequentialRead::execute`](stage8_benchmark.cpp#L91)                  |
-| mmap 版和 read 版用完全相同的累加方式                       | 一边能向量化、一边不能，比的变成了循环写法 | [`ReadSequentialRead::execute`](stage8_benchmark.cpp#L121)                                                    |
-| 测试文件用同一个随机种子（42）                              | 两边读到的数据不同                         | [`create_test_file`](stage8_benchmark.cpp#L22)                                                                |
-| 两个随机读用同一组偏移（种子 123），且在 `setup()` 里预生成 | 两边访问位置不同；随机数生成的耗时被算进去 | [`MmapRandomRead::setup`](stage8_benchmark.cpp#L155)                                                          |
-| 吞吐量按**实际读取的字节数**计算                            | 随机读只读了 400KB，却按 10MB 算，数字虚高 | [`bytes_processed`](stage8_benchmark.cpp#L45)、[`MmapRandomRead::bytes_processed`](stage8_benchmark.cpp#L189) |
+| 结果累加进 `volatile uint64_t sink_`                        | 编译器发现结果没用，把整个循环删掉         | [`sink_`](benchmark.h#L38)、[`MmapSequentialRead::execute`](mmap_sequential_read.cpp#L26)                  |
+| mmap 版和 read 版用完全相同的累加方式                       | 一边能向量化、一边不能，比的变成了循环写法 | [`ReadSequentialRead::execute`](read_sequential_read.cpp#L20)                                                    |
+| 测试文件用同一个随机种子（42）                              | 两边读到的数据不同                         | [`create_test_file`](benchmark.cpp#L22)                                                                |
+| 两个随机读用同一组偏移（种子 123），且在 `setup()` 里预生成 | 两边访问位置不同；随机数生成的耗时被算进去 | [`MmapRandomRead::setup`](mmap_random_read.cpp#L14)                                                          |
+| 吞吐量按**实际读取的字节数**计算                            | 随机读只读了 400KB，却按 10MB 算，数字虚高 | [`bytes_processed`](benchmark.cpp#L45)、[`MmapRandomRead::bytes_processed`](mmap_random_read.cpp#L48) |
 
 ---
 
@@ -180,9 +194,9 @@ setup() → 开始计时 → execute() × N → 停止计时 → teardown() → 
 ## 动手练习
 
 1. **开优化重跑**：用 `-DCMAKE_BUILD_TYPE=Release` 构建，对比默认构建的数字。哪一组变化最大？为什么随机读的 read() 几乎没变？
-2. **把缺页挪出计时**：在 [`MmapSequentialRead::setup`](stage8_benchmark.cpp#L77) 末尾先把整个映射读一遍（或调用 `region_.advise(MADV_WILLNEED)`），再跑第一组，看 mmap 和 read() 的顺序读差距如何变化。
+2. **把缺页挪出计时**：在 [`MmapSequentialRead::setup`](mmap_sequential_read.cpp#L12) 末尾先把整个映射读一遍（或调用 `region_.advise(MADV_WILLNEED)`），再跑第一组，看 mmap 和 read() 的顺序读差距如何变化。
    *提示：这相当于手动做了 `MAP_POPULATE`。*
-3. **省掉一半系统调用**：把 [`ReadRandomRead::execute`](stage8_benchmark.cpp#L223) 里的 `lseek` + `read` 换成一次 `pread`，预测耗时会变成多少，再实际测一下。
+3. **省掉一半系统调用**：把 [`ReadRandomRead::execute`](read_random_read.cpp#L30) 里的 `lseek` + `read` 换成一次 `pread`，预测耗时会变成多少，再实际测一下。
 4. **改变读取粒度**：把随机读的每次 4 字节改成 4KB，mmap 和 read() 的差距会变大还是变小？
    *提示：系统调用的固定成本被摊薄了，而 mmap 开始碰到更多不同的页。*
 5. **测冷缓存**：在 `setup()` 写完文件后清空 page cache（见上表命令），再测一次。两条路径的差距还剩多少？
