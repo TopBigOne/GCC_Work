@@ -1,5 +1,7 @@
 #include "stage1_basic.h"
 
+#include "../log.h"
+
 #include "../mmap_wrapper.hpp"
 
 #include <cstdio>
@@ -9,8 +11,12 @@
 
 namespace mmap_learn {
 
+namespace {
+constexpr const char* kTag = "Stage1";
+} // namespace
+
 void Stage1Basic::demo_read_file() {
-    printf("[Stage1] demo_read_file: Read a file via mmap\n");
+    LOGI(kTag, "demo_read_file: Read a file via mmap");
 
     const std::string path_str = work_path("mmap_learn_read.txt");
     const char *path = path_str.c_str();
@@ -41,18 +47,18 @@ void Stage1Basic::demo_read_file() {
                                 .file(fd.get())
                                 .build();
 
-        printf("  mmap addr  : %p\n", region.data());
-        printf("  mmap size  : %zu\n", region.size());
+        LOGD(kTag, "mmap addr  : %p", region.data());
+        LOGD(kTag, "mmap size  : %zu", region.size());
         // 映射区不以 '\0' 结尾，所以用 %.*s 指定长度打印
-        printf("  content    : %.*s\n", static_cast<int>(region.size()), region.as<const char>());
+        LOGD(kTag, "content    : %.*s", static_cast<int>(region.size()), region.as<const char>());
     }
     // 离开作用域：MmapRegion 析构调用 munmap，FileDescriptor 析构调用 close
 
-    printf("  RAII cleanup done (munmap + close)\n\n");
+    LOGD(kTag, "RAII cleanup done (munmap + close)");
 }
 
 void Stage1Basic::demo_write_shared() {
-    printf("[Stage1] demo_write_shared: Write via MAP_SHARED\n");
+    LOGI(kTag, "demo_write_shared: Write via MAP_SHARED");
 
     const std::string path_str = work_path("mmap_learn_write.txt");
     const char *path = path_str.c_str();
@@ -78,7 +84,7 @@ void Stage1Basic::demo_write_shared() {
                                 .file(fd.get())
                                 .build();
 
-        printf("  before modify: %.*s\n", static_cast<int>(region.size()), region.as<const char>());
+        LOGD(kTag, "before modify: %.*s", static_cast<int>(region.size()), region.as<const char>());
 
         // 直接通过指针覆盖前 4 个字节，没有任何 write() 调用
         char *ptr = region.as<char>();
@@ -87,11 +93,11 @@ void Stage1Basic::demo_write_shared() {
         ptr[2] = 'Z';
         ptr[3] = 'W';
 
-        printf("  after modify : %.*s\n", static_cast<int>(region.size()), region.as<const char>());
+        LOGD(kTag, "after modify : %.*s", static_cast<int>(region.size()), region.as<const char>());
 
         // 把脏页同步写回磁盘
         region.sync(MS_SYNC);
-        printf("  msync done\n");
+        LOGD(kTag, "msync done");
     }
 
     // 用传统 read() 验证文件内容确实被改了
@@ -101,15 +107,14 @@ void Stage1Basic::demo_write_shared() {
         ssize_t n = ::read(fd.get(), buf, sizeof(buf) - 1);
         if (n > 0) {
             buf[n] = '\0';
-            printf("  read() verify: %s\n", buf);
+            LOGD(kTag, "read() verify: %s", buf);
         }
     }
 
-    printf("\n");
 }
 
 void Stage1Basic::demo_shared_vs_private() {
-    printf("[Stage1] demo_shared_vs_private: SHARED vs PRIVATE (COW)\n");
+    LOGI(kTag, "demo_shared_vs_private: SHARED vs PRIVATE (COW)");
 
     const std::string path_str = work_path("mmap_learn_cow.txt");
     const char *path = path_str.c_str();
@@ -143,7 +148,7 @@ void Stage1Basic::demo_shared_vs_private() {
     };
 
     // --- Part A：MAP_SHARED 的修改会写回文件 ---
-    printf("  --- MAP_SHARED ---\n");
+    LOGD(kTag, "--- MAP_SHARED ---");
     write_file(original);
     //{}:块作用域,块结束，资源就释放，减少资源占用的时间
     {
@@ -156,24 +161,24 @@ void Stage1Basic::demo_shared_vs_private() {
                                 .file(fd.get())
                                 .build();
 
-        printf("  mmap content before: %.*s\n", static_cast<int>(len), region.as<const char>());
+        LOGD(kTag, "mmap content before: %.*s", static_cast<int>(len), region.as<const char>());
 
         // 改成 "BBBB"，并 msync 刷盘
         char *ptr = region.as<char>();
         memset(ptr, 'B', len);
         region.sync(MS_SYNC);
 
-        printf("  mmap content after : %.*s\n", static_cast<int>(len), region.as<const char>());
+        LOGD(kTag, "mmap content after : %.*s", static_cast<int>(len), region.as<const char>());
     }
 
     {
         char buf[16] = {};
         read_file(buf, sizeof(buf));
-        printf("  file on disk       : %s  (file changed!)\n", buf);
+        LOGD(kTag, "file on disk       : %s  (file changed!)", buf);
     }
 
     // --- Part B：MAP_PRIVATE 的修改不会写回文件（写时复制 COW）---
-    printf("  --- MAP_PRIVATE (COW) ---\n");
+    LOGD(kTag, "--- MAP_PRIVATE (COW) ---");
     write_file(original);  // 重置为 "AAAA"
     {
         FileDescriptor fd(path, O_RDONLY);
@@ -185,36 +190,35 @@ void Stage1Basic::demo_shared_vs_private() {
                                 .file(fd.get())
                                 .build();
 
-        printf("  mmap content before: %.*s\n", static_cast<int>(len), region.as<const char>());
+        LOGD(kTag, "mmap content before: %.*s", static_cast<int>(len), region.as<const char>());
 
         // 改成 "CCCC" —— 只改了本进程的私有副本
         char *ptr = region.as<char>();
         memset(ptr, 'C', len);
 
-        printf("  mmap content after : %.*s\n", static_cast<int>(len), region.as<const char>());
+        LOGD(kTag, "mmap content after : %.*s", static_cast<int>(len), region.as<const char>());
     }
 
     {
         char buf[16] = {};
         read_file(buf, sizeof(buf));
-        printf("  file on disk       : %s  (file unchanged - COW!)\n", buf);
+        LOGD(kTag, "file on disk       : %s  (file unchanged - COW!)", buf);
     }
 
-    printf("\n");
 }
 
 void Stage1Basic::run_all() {
-    printf("========================================\n");
-    printf("  Stage 1: mmap Basic Operations\n");
-    printf("========================================\n\n");
+    LOGI(kTag, "========================================");
+    LOGI(kTag, "Stage 1: mmap Basic Operations");
+    LOGI(kTag, "========================================");
 
     demo_read_file();
     demo_write_shared();
     demo_shared_vs_private();
 
-    printf("========================================\n");
-    printf("  Stage 1 complete\n");
-    printf("========================================\n");
+    LOGI(kTag, "========================================");
+    LOGI(kTag, "Stage 1 complete");
+    LOGI(kTag, "========================================");
 }
 
 } // namespace mmap_learn

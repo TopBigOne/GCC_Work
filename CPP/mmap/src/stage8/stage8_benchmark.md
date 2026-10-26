@@ -6,12 +6,12 @@
 
 你会亲手测出四组数据：
 
-| 测试 | 访问方式 | 每轮读多少 |
-|---|---|---|
-| `mmap sequential read` | 映射整个文件，从头到尾逐字节累加 | 整个文件 |
-| `read() sequential read` | 每次 `read()` 64KB 到缓冲区，再逐字节累加 | 整个文件 |
-| `mmap random read` | 在映射里随机取 10 万个位置，每次 4 字节 | 10 万 × 4 B |
-| `read() random read` | 同样 10 万个位置，每次 `lseek` + `read` 4 字节 | 10 万 × 4 B |
+| 测试                     | 访问方式                                       | 每轮读多少  |
+|--------------------------|------------------------------------------------|-------------|
+| `mmap sequential read`   | 映射整个文件，从头到尾逐字节累加               | 整个文件    |
+| `read() sequential read` | 每次 `read()` 64KB 到缓冲区，再逐字节累加      | 整个文件    |
+| `mmap random read`       | 在映射里随机取 10 万个位置，每次 4 字节        | 10 万 × 4 B |
+| `read() random read`     | 同样 10 万个位置，每次 `lseek` + `read` 4 字节 | 10 万 × 4 B |
 
 **为什么要学**：选 mmap 还是 read 是工程里真实存在的决策。ripgrep、SQLite、LMDB、llama.cpp 都在这件事上做过取舍。只记"mmap 零拷贝所以快"会让你在顺序大块读的场景里做出错误判断。
 
@@ -33,7 +33,7 @@ cmake -S . -B build && cmake --build build
 一句话读懂这张图：**两条路径读的都是内核里同一份 page cache**，区别只在"数据怎么到你的代码手里"。
 
 - **read() 路径**（左）：你的代码 → ① 系统调用陷入内核 → 内核在 page cache 里找到页 → ② CPU 把数据**拷贝**到你的 `buf` → 回到用户态，你再去读 `buf`。
-- **mmap 路径**（右）：你的代码直接读 `addr[i]` → CPU 通过 TLB / 页表把虚拟地址翻译成 page cache 的物理页 → ③ **直接读到**，没有拷贝。只有某一页**第一次**被访问时，才会触发一次缺页，由内核把这一页填进页表。
+- **mmap 路径**（右）  ：你的代码直接读 `addr[i]` → CPU 通过 TLB / 页表把虚拟地址翻译成 page cache 的物理页 → ③ **直接读到**，没有拷贝。只有某一页**第一次**被访问时，才会触发一次缺页，由内核把这一页填进页表。
 
 所以两者的成本结构完全不同：read() 是"**每次调用都要付**"（系统调用 + 拷贝），mmap 是"**每页第一次付一次**"（缺页）+ 一次性的 mmap/munmap。
 
@@ -92,13 +92,13 @@ setup() → 开始计时 → execute() × N → 停止计时 → teardown() → 
 
 性能测试最怕"测的不是你以为的东西"。代码里做了这几件事：
 
-| 措施 | 防的是什么 | 代码位置 |
-|---|---|---|
-| 结果累加进 `volatile uint64_t sink_` | 编译器发现结果没用，把整个循环删掉 | [`sink_`](stage8_benchmark.h#L60)、[`MmapSequentialRead::execute`](stage8_benchmark.cpp#L91) |
-| mmap 版和 read 版用完全相同的累加方式 | 一边能向量化、一边不能，比的变成了循环写法 | [`ReadSequentialRead::execute`](stage8_benchmark.cpp#L121) |
-| 测试文件用同一个随机种子（42） | 两边读到的数据不同 | [`create_test_file`](stage8_benchmark.cpp#L22) |
-| 两个随机读用同一组偏移（种子 123），且在 `setup()` 里预生成 | 两边访问位置不同；随机数生成的耗时被算进去 | [`MmapRandomRead::setup`](stage8_benchmark.cpp#L155) |
-| 吞吐量按**实际读取的字节数**计算 | 随机读只读了 400KB，却按 10MB 算，数字虚高 | [`bytes_processed`](stage8_benchmark.cpp#L45)、[`MmapRandomRead::bytes_processed`](stage8_benchmark.cpp#L189) |
+| 措施                                                        | 防的是什么                                 | 代码位置                                                                                                      |
+|-------------------------------------------------------------|--------------------------------------------|---------------------------------------------------------------------------------------------------------------|
+| 结果累加进 `volatile uint64_t sink_`                        | 编译器发现结果没用，把整个循环删掉         | [`sink_`](stage8_benchmark.h#L60)、[`MmapSequentialRead::execute`](stage8_benchmark.cpp#L91)                  |
+| mmap 版和 read 版用完全相同的累加方式                       | 一边能向量化、一边不能，比的变成了循环写法 | [`ReadSequentialRead::execute`](stage8_benchmark.cpp#L121)                                                    |
+| 测试文件用同一个随机种子（42）                              | 两边读到的数据不同                         | [`create_test_file`](stage8_benchmark.cpp#L22)                                                                |
+| 两个随机读用同一组偏移（种子 123），且在 `setup()` 里预生成 | 两边访问位置不同；随机数生成的耗时被算进去 | [`MmapRandomRead::setup`](stage8_benchmark.cpp#L155)                                                          |
+| 吞吐量按**实际读取的字节数**计算                            | 随机读只读了 400KB，却按 10MB 算，数字虚高 | [`bytes_processed`](stage8_benchmark.cpp#L45)、[`MmapRandomRead::bytes_processed`](stage8_benchmark.cpp#L189) |
 
 ---
 
@@ -167,13 +167,13 @@ setup() → 开始计时 → execute() × N → 停止计时 → teardown() → 
 
 ## macOS 与 Linux 的差异
 
-| 项目 | macOS（Apple Silicon） | Linux（x86-64 常见配置） |
-|---|---|---|
-| 页大小 | 16 KB | 4 KB（同样大小的文件缺页次数是 macOS 的 4 倍） |
-| 预先填好页表 | 没有 `MAP_POPULATE`，可以用 `madvise(MADV_WILLNEED)` 提示 | `MAP_POPULATE` 在 mmap 时就把所有页填进页表 |
-| 缺页时顺带映射邻近页 | 有类似机制，细节不公开 | 有 fault-around，一次缺页会顺带映射附近最多 16 页 |
-| 清空 page cache 做冷缓存测试 | `sudo purge` | `sync; echo 3 \| sudo tee /proc/sys/vm/drop_caches` |
-| 大页 | 不支持 `MAP_HUGETLB` | 支持 `MAP_HUGETLB` / 透明大页（减少 TLB miss） |
+| 项目                         | macOS（Apple Silicon）                                    | Linux（x86-64 常见配置）                            |
+|------------------------------|-----------------------------------------------------------|-----------------------------------------------------|
+| 页大小                       | 16 KB                                                     | 4 KB（同样大小的文件缺页次数是 macOS 的 4 倍）      |
+| 预先填好页表                 | 没有 `MAP_POPULATE`，可以用 `madvise(MADV_WILLNEED)` 提示 | `MAP_POPULATE` 在 mmap 时就把所有页填进页表         |
+| 缺页时顺带映射邻近页         | 有类似机制，细节不公开                                    | 有 fault-around，一次缺页会顺带映射附近最多 16 页   |
+| 清空 page cache 做冷缓存测试 | `sudo purge`                                              | `sync; echo 3 \| sudo tee /proc/sys/vm/drop_caches` |
+| 大页                         | 不支持 `MAP_HUGETLB`                                      | 支持 `MAP_HUGETLB` / 透明大页（减少 TLB miss）      |
 
 ---
 

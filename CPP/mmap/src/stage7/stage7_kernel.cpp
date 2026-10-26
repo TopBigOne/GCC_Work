@@ -1,5 +1,7 @@
 #include "stage7_kernel.h"
 
+#include "../log.h"
+
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -13,6 +15,10 @@
 #endif
 
 namespace mmap_learn {
+
+namespace {
+constexpr const char* kTag = "Stage7";
+} // namespace
 
 // ============================================================
 // ConsoleObserver
@@ -30,8 +36,9 @@ const char *ConsoleObserver::event_type_str(MemoryEventType t) {
 }
 
 void ConsoleObserver::on_event(const MemoryEvent &event) {
-    printf("  [EVENT] %-10s | addr: %p | size: %8zu | %s\n",
-           event_type_str(event.event_type), event.address, event.size, event.description.c_str());
+    LOGD(kTag, "[EVENT]");
+    LOGI(kTag, "        %-10s | addr: %p | size: %8zu | %s", event_type_str(event.event_type), event.address,
+         event.size, event.description.c_str());
 }
 
 // ============================================================
@@ -107,7 +114,7 @@ std::vector<ProcessMapEntry> ProcessMapsReader::read_maps() {
     // unique_ptr 管理 FILE*：parse_maps_file 中途抛异常（如内存不足）也会 fclose
     std::unique_ptr<FILE, int (*)(FILE *)> f(fopen("/proc/self/maps", "r"), &fclose);
     if (!f) {
-        printf("  [ProcessMapsReader] Cannot open /proc/self/maps\n");
+        LOGE(kTag, "[ProcessMapsReader] Cannot open /proc/self/maps");
         return entries;
     }
     parse_maps_file(f.get(), entries);
@@ -118,11 +125,11 @@ std::vector<ProcessMapEntry> ProcessMapsReader::read_maps() {
     if (f) {
         parse_maps_file(f.get(), entries);
     } else {
-        printf("  [ProcessMapsReader] /proc/self/maps not available on macOS.\n");
-        printf("  [ProcessMapsReader] Run manually:  vmmap %d\n", static_cast<int>(getpid()));
+        LOGW(kTag, "    [ProcessMapsReader] /proc/self/maps not available on macOS.");
+        LOGI(kTag, "    [ProcessMapsReader] Run manually:  vmmap %d", static_cast<int>(getpid()));
     }
 #else
-    printf("  [ProcessMapsReader] Unsupported platform\n");
+    LOGW(kTag, "    [ProcessMapsReader] Unsupported platform");
 #endif
     return entries;
 }
@@ -130,15 +137,14 @@ std::vector<ProcessMapEntry> ProcessMapsReader::read_maps() {
 void ProcessMapsReader::print_maps() {
     auto entries = read_maps();
     if (entries.empty()) {
-        printf("  (no entries available)\n");
+        LOGW(kTag, "    (no entries available)");
         return;
     }
-    printf("  %-34s %-5s %-10s %-8s %-10s %s\n", "Address Range", "Perms", "Offset", "Dev", "Inode",
-           "Pathname");
-    printf("  %s\n", std::string(100, '-').c_str());
+    LOGD(kTag, "%-34s %-5s %-10s %-8s %-10s %s", "Address Range", "Perms", "Offset", "Dev", "Inode", "Pathname");
+    LOGD(kTag, "%s", std::string(100, '-').c_str());
     for (const auto &e : entries) {
-        printf("  %012lx-%012lx %-5s %08lx   %-8s %-10lu %s\n", e.addr_start, e.addr_end, e.perms, e.offset,
-               e.device, e.inode, e.pathname.c_str());
+        LOGD(kTag, "%012lx-%012lx %-5s %08lx   %-8s %-10lu %s", e.addr_start, e.addr_end, e.perms, e.offset,
+             e.device, e.inode, e.pathname.c_str());
     }
 }
 
@@ -177,157 +183,159 @@ void ProcessMapsReader::parse_maps_file(FILE *f, std::vector<ProcessMapEntry> &e
 // ============================================================
 
 void Stage7Kernel::demo_observer() {
-    printf("[Stage7] demo_observer: Observer pattern for mmap operations\n\n");
+    LOGD(kTag, "1:demo_observer: Observer pattern for mmap operations");
 
     ConsoleObserver console_obs;
     ObservableMmapRegion region;
     region.add_observer(&console_obs);
 
     // 1. 映射一块匿名内存：内核只新建 VMA，还没有物理页
-    printf("  --- Mapping anonymous region (4096 bytes) ---\n");
+    LOGI(kTag, "        --- Mapping anonymous region (4096 bytes) ---");
     region.map(4096, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON);
 
     // 2. 写数据：首次写入触发缺页，内核分配一页清零的物理内存（do_anonymous_page）
-    printf("  --- Writing data ---\n");
+    LOGI(kTag, "        --- Writing data ---");
     memset(region.data(), 0xAB, 64);
-    printf("  (wrote 64 bytes of 0xAB, no event -- direct access)\n");
+    LOGI(kTag, "        (wrote 64 bytes of 0xAB, no event -- direct access)");
 
     // 3. 改为只读：此后写入会触发 SIGSEGV
-    printf("  --- Changing protection to READ-ONLY ---\n");
+    LOGI(kTag, "        --- Changing protection to READ-ONLY ---");
     region.protect(PROT_READ);
 
     // 4. 改回读写
-    printf("  --- Changing protection to READ-WRITE ---\n");
+    LOGI(kTag, "        --- Changing protection to READ-WRITE ---");
     region.protect(PROT_READ | PROT_WRITE);
 
     // 5. 同步：匿名映射没有对应文件，msync 无实际作用（多数系统直接返回成功），这里只为演示事件
-    printf("  --- Syncing ---\n");
+    LOGI(kTag, "        --- Syncing ---");
     region.sync(MS_SYNC);
 
     // 6. 锁定页，防止被换出
-    printf("  --- Locking pages ---\n");
+    LOGI(kTag, "        --- Locking pages ---");
     region.lock();
 
     // 7. 解除映射：删除 VMA，释放物理页
-    printf("  --- Unmapping ---\n");
+    LOGI(kTag, "    --- Unmapping ---");
     region.unmap();
-
-    printf("\n");
 }
 
 void Stage7Kernel::demo_process_maps() {
-    printf("[Stage7] demo_process_maps: Process memory layout\n\n");
+    LOGD(kTag, "     ");
+    LOGD(kTag, "     ");
+    LOGD(kTag, "2:demo_process_maps: Process memory layout");
 
     // 创建两块映射，稍后在 maps 中查找它们
     MmapRegion region1(nullptr, 4096, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
     MmapRegion region2(nullptr, 8192, PROT_READ, MAP_PRIVATE | MAP_ANON, -1, 0);
 
-    printf("  Created region1 at %p (4096 bytes, rw)\n", region1.data());
-    printf("  Created region2 at %p (8192 bytes, r-)\n", region2.data());
-    printf("\n");
+    LOGI(kTag, "    Created region1 at %p (4096 bytes, rw)", region1.data());
+    LOGI(kTag, "    Created region2 at %p (8192 bytes, r-)", region2.data());
 
     // 打印进程的全部映射
-    printf("  --- Current process memory mappings ---\n");
+    LOGD(kTag, "--- Current process memory mappings ---");
     ProcessMapsReader::print_maps();
-    printf("\n");
 
     // 按地址查找我们的两块映射落在哪个 VMA 里
     auto entries = ProcessMapsReader::read_maps();
     if (!entries.empty()) {
-        printf("  --- Looking up our regions ---\n");
+        LOGD(kTag, "--- Looking up our regions ---");
         const ProcessMapEntry *e1 = ProcessMapsReader::find_region(entries, region1.data());
         if (e1) {
-            printf("  region1 (%p) found in: %012lx-%012lx %s %s\n", region1.data(), e1->addr_start,
-                   e1->addr_end, e1->perms, e1->pathname.c_str());
+            LOGI(kTag, "    region1 (%p) found in: %012lx-%012lx %s %s", region1.data(), e1->addr_start, e1->addr_end,
+                 e1->perms, e1->pathname.c_str());
         } else {
-            printf("  region1 (%p) not found in maps (expected on macOS)\n", region1.data());
+            LOGW(kTag, "    region1 (%p) not found in maps (expected on macOS)", region1.data());
         }
 
         const ProcessMapEntry *e2 = ProcessMapsReader::find_region(entries, region2.data());
         if (e2) {
-            printf("  region2 (%p) found in: %012lx-%012lx %s %s\n", region2.data(), e2->addr_start,
-                   e2->addr_end, e2->perms, e2->pathname.c_str());
+            LOGI(kTag, "    region2 (%p) found in: %012lx-%012lx %s %s", region2.data(), e2->addr_start, e2->addr_end,
+                 e2->perms, e2->pathname.c_str());
         } else {
-            printf("  region2 (%p) not found in maps (expected on macOS)\n", region2.data());
+            LOGW(kTag, "    region2 (%p) not found in maps (expected on macOS)", region2.data());
         }
     }
-
-    printf("\n");
 }
 
 void Stage7Kernel::demo_vma_concepts() {
-    printf("[Stage7] demo_vma_concepts: Kernel internals explanation\n\n");
+    LOGD(kTag, "     ");
+    LOGD(kTag, "     ");
+    LOGD(kTag, "3:demo_vma_concepts: Kernel internals explanation 内核原理讲解");
 
-    printf("  ================================================================\n");
-    printf("  vm_area_struct (VMA) - Linux Kernel Data Structure\n");
-    printf("  ================================================================\n");
-    printf("  Each call to mmap() creates a vm_area_struct in the kernel.\n");
-    printf("  Key fields:\n");
-    printf("    vm_start / vm_end   - virtual address range\n");
-    printf("    vm_flags            - permissions (VM_READ, VM_WRITE, VM_EXEC, VM_SHARED)\n");
-    printf("    vm_pgoff            - offset into the file (in pages)\n");
-    printf("    vm_file             - pointer to struct file (NULL for anonymous)\n");
-    printf("    vm_ops              - operations table (fault, map_pages, etc.)\n");
-    printf("  VMAs are stored in a maple tree (>= 6.1) or rb-tree (older kernels)\n");
-    printf("  within mm_struct, allowing O(log n) lookup by address.\n");
-    printf("\n");
+    LOGI(kTag, "=== vm_area_struct (VMA) - Linux Kernel Data Structure:Linux 内核里描述一段映射的数据结构  ===");
+    LOGI(kTag, "    Each call to mmap() creates a vm_area_struct in the kernel.每调用一次 mmap()，内核就新建一个 vm_area_struct。");
+    LOGI(kTag, "    Key fields:主要字段:");
+    LOGI(kTag, "      vm_start / vm_end   - virtual address range:虚拟地址范围（起始、结束）");
+    LOGI(kTag, "      vm_flags            - permissions (VM_READ, VM_WRITE, VM_EXEC, VM_SHARED):权限和属性（可读、可写、可执行、是否共享）");
+    LOGI(kTag, "      vm_pgoff            - offset into the file (in pages):在文件中的偏移，以页为单位");
+    LOGI(kTag, "      vm_file             - pointer to struct file (NULL for anonymous):指向被映射文件的 struct file，匿名映射为 NULL");
+    LOGI(kTag, "      vm_ops              - operations table (fault, map_pages, etc.:回调函数表，例如缺页时调用的 fault、map_pages)");
+    LOGI(kTag, "    VMAs are stored in a maple tree (>= 6.1) or rb-tree (older kernels)");
+    LOGI(kTag, "        VMA 存放在 maple tree（内核 6.1 及以后）或红黑树（更早的内核）中，");
+    LOGI(kTag, "    within mm_struct, allowing O(log n) lookup by address.");
+    LOGI(kTag, "        挂在进程的 mm_struct 上，按地址查找是 O(log n)。");
 
-    printf("  ================================================================\n");
-    printf("  do_mmap() - Kernel Path When You Call mmap()\n");
-    printf("  ================================================================\n");
-    printf("  User calls mmap()  -->  syscall entry (SYS_mmap)\n");
-    printf("    --> ksys_mmap_pgoff()\n");
-    printf("      --> vm_mmap_pgoff()\n");
-    printf("        --> do_mmap()\n");
-    printf("          1. Validate parameters (length, flags, prot)\n");
-    printf("          2. Find free virtual address range (get_unmapped_area)\n");
-    printf("          3. Check against rlimits (RLIMIT_AS, RLIMIT_MEMLOCK)\n");
-    printf("          4. Allocate vm_area_struct\n");
-    printf("          5. Insert VMA into mm_struct's maple tree\n");
-    printf("          6. If file-backed: call file->f_op->mmap()\n");
-    printf("          7. Return virtual address to userspace\n");
-    printf("  NOTE: No physical pages are allocated yet! (demand paging)\n");
-    printf("\n");
+    LOGD(kTag, "=== do_mmap() - Kernel Path When You Call mmap() 调用 mmap() 后内核走的路径===");
+    LOGI(kTag, "    User calls mmap()  -->  syscall entry (SYS_mmap)");
+    LOGI(kTag, "        用户态调用 mmap()  -->  进入系统调用入口（SYS_mmap）");
+    LOGI(kTag, "      --> ksys_mmap_pgoff()");
+    LOGI(kTag, "      -->                    :根据 fd 取出 struct file，处理 MAP_HUGETLB");
+    LOGI(kTag, "        --> vm_mmap_pgoff()");
+    LOGI(kTag, "        -->                 :加 mmap 写锁，做安全检查");
+    LOGI(kTag, "          --> do_mmap()");
+    LOGI(kTag, "          -->           ：真正建立映射的函数");
+    LOGI(kTag, "            1. Validate parameters (length, flags, prot):检查参数（长度、标志、权限）");
+    LOGI(kTag, "            2. Find free virtual address range (get_unmapped_area):找一段空闲的虚拟地址（get_unmapped_area）");
+    LOGI(kTag, "            3. Check against rlimits (RLIMIT_AS, RLIMIT_MEMLOCK):检查资源限制（地址空间上限、可锁定内存上限）");
+    LOGI(kTag, "            4. Allocate vm_area_struct:分配一个 vm_area_struct");
+    LOGI(kTag, "            5. Insert VMA into mm_struct's maple tree:把 VMA 插入 mm_struct 的 maple tree");
+    LOGI(kTag, "            6. If file-backed: call file->f_op->mmap():如果映射的是文件：调用该文件系统或驱动的 f_op->mmap()");
+    LOGI(kTag, "            7. Return virtual address to userspace:把虚拟地址返回给用户态");
+    LOGV(kTag, "            NOTE: No physical pages are allocated yet! (demand paging)注意：到这里还没有分配任何物理页！（按需分页）");
 
-    printf("  ================================================================\n");
-    printf("  Page Fault Handling - When Memory Is Actually Allocated\n");
-    printf("  ================================================================\n");
-    printf("  First access to mapped page triggers a page fault:\n");
-    printf("    CPU exception  -->  do_page_fault()\n");
-    printf("      --> find_vma(mm, address)\n");
-    printf("        --> handle_mm_fault()\n");
-    printf("          --> __handle_mm_fault()\n");
-    printf("            --> handle_pte_fault()\n");
-    printf("  Depending on mapping type:\n");
-    printf("    Anonymous:   do_anonymous_page() - allocate zeroed page\n");
-    printf("    File-backed: do_read_fault()     - read page from disk\n");
-    printf("    COW:         do_wp_page()        - copy page on write\n");
-    printf("    Swap:        do_swap_page()      - read from swap space\n");
-    printf("  After handling, the PTE (Page Table Entry) is updated,\n");
-    printf("  and the CPU retries the faulting instruction.\n");
-    printf("\n");
+    LOGV(kTag, "    === Page Fault Handling - When Memory Is Actually Allocated 缺页处理：物理内存真正被分配的时刻===");
+    LOGI(kTag, "    First access to mapped page triggers a page fault:第一次访问映射里的某一页时，触发缺页异常：");
+    LOGI(kTag, "      CPU exception  -->  do_page_fault()");
+    LOGI(kTag, "                        CPU 产生异常  -->  进入 do_page_fault()");
+    LOGI(kTag, "        --> find_vma(mm, address)");
+    LOGI(kTag, "        -->                     ：找出出错地址属于哪个 VMA，找不到就发 SIGSEGV");
+    LOGI(kTag, "          --> handle_mm_fault()");
+    LOGI(kTag, "          -->                   ：通用的缺页处理入口");
+    LOGI(kTag, "            --> __handle_mm_fault()");
+    LOGI(kTag, "            -->                 ：逐级分配页表（PGD/PUD/PMD）");
+    LOGI(kTag, "              --> handle_pte_fault()");
+    LOGI(kTag, "              -->               ：根据最后一级页表项的状态分情况处理");
+    LOGI(kTag, "    Depending on mapping type: 按映射类型分成几种情况");
+    LOGI(kTag, "      1.Anonymous   :  do_anonymous_page() - allocate zeroed page");
+    LOGI(kTag, "                       匿名映射：            - 分配一页清零的物理内存");
+    LOGI(kTag, "      2.File-backed : do_read_fault()      - read page from disk");
+    LOGI(kTag, "                      文件映射：             - 从 page cache 取页，不在就从磁盘读入");
+    LOGI(kTag, "      3.COW         :  do_wp_page()        - copy page on write");
+    LOGI(kTag, "                       写时复制：            - 写->只读的共享页时复制出一份私有页");
+    LOGI(kTag, "      4.Swap        :  do_swap_page()      - read from swap space");
+    LOGI(kTag, "                       换出的页：            - 从 swap 分区读回内存");
+    LOGV(kTag, "    After handling, the PTE (Page Table Entry) is updated,处理完后更新页表项（PTE），");
+    LOGV(kTag, "    and the CPU retries the faulting instruction.CPU 回到用户态，重新执行刚才出错的那条指令。");
 
-    printf("  ================================================================\n");
-    printf("  Summary: mmap() is lazy -- it only sets up bookkeeping.\n");
-    printf("  Physical memory is allocated on-demand via page faults.\n");
-    printf("  This is why mmap() returns instantly even for huge mappings.\n");
-    printf("  ================================================================\n");
 
-    printf("\n");
+    LOGI(kTag, "    === Summary 总结===");
+    LOGI(kTag, "     mmap() is lazy -- it only sets up bookkeeping.mmap() 是\"懒\"的：它只在内核里登记一下。");
+    LOGI(kTag, "     Physical memory is allocated on-demand via page faults.物理内存要等访问时通过缺页按需分配。");
+    LOGI(kTag, "     This is why mmap() returns instantly even for huge mappings.所以哪怕映射一个很大的文件，mmap() 也能立刻返回。");
 }
 
 void Stage7Kernel::run_all() {
-    printf("========================================\n");
-    printf("  Stage 7: Kernel Internals Observation\n");
-    printf("========================================\n\n");
+    LOGI(kTag, "========================================");
+    LOGI(kTag, "Stage 7: Kernel Internals Observation");
+    LOGI(kTag, "========================================");
 
     demo_observer();
     demo_process_maps();
     demo_vma_concepts();
 
-    printf("========================================\n");
-    printf("  Stage 7 complete\n");
-    printf("========================================\n");
+    LOGI(kTag, "========================================");
+    LOGI(kTag, "Stage 7 complete");
+    LOGI(kTag, "========================================");
 }
 
 } // namespace mmap_learn

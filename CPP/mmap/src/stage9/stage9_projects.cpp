@@ -1,4 +1,6 @@
-#include "stage9_projects.h"
+ #include "stage9_projects.h"
+
+#include "../log.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -10,6 +12,10 @@
 #include <utility>
 
 namespace mmap_learn {
+
+namespace {
+constexpr const char* kTag = "Stage9";
+} // namespace
 
 // ============================================================
 // MiniGrep
@@ -252,7 +258,7 @@ void SimpleKVStore::append_entry(std::string_view key, std::string_view value, b
 // ============================================================
 
 void Stage9Projects::demo_mini_grep() {
-    printf("=== Stage 9: MiniGrep Demo ===\n\n");
+    LOGI(kTag, "=== Stage 9: MiniGrep Demo ===");
 
     const std::string tmp_path_str = work_path("mmap_learn_grep_input.txt");
     const char *tmp_path = tmp_path_str.c_str();
@@ -261,7 +267,7 @@ void Stage9Projects::demo_mini_grep() {
     {
         FILE *f = std::fopen(tmp_path, "w");
         if (!f) {
-            printf("[ERROR] Cannot create temp file %s\n", tmp_path);
+            LOGE(kTag, "Cannot create temp file %s", tmp_path);
             return;
         }
         std::fprintf(f,
@@ -280,36 +286,35 @@ void Stage9Projects::demo_mini_grep() {
     MiniGrep grep("fox");
     auto matches = grep.search_file(tmp_path);
 
-    printf("Pattern: \"fox\"\n");
-    printf("File:    %s\n", tmp_path);
-    printf("Matches: %zu\n\n", matches.size());
+    LOGI(kTag, "Pattern: \"fox\"");
+    LOGI(kTag, "File:    %s", tmp_path);
+    LOGI(kTag, "Matches: %zu", matches.size());
     for (const auto &m : matches) {
-        printf("  Line %d: %s\n", m.line_no, m.line.c_str());
+        LOGD(kTag, "Line %d: %s", m.line_no, m.line.c_str());
     }
 
     // 搜索 "mmap"
     MiniGrep grep2("mmap");
     auto matches2 = grep2.search_file(tmp_path);
 
-    printf("\nPattern: \"mmap\"\n");
-    printf("Matches: %zu\n\n", matches2.size());
+    LOGI(kTag, "Pattern: \"mmap\"");
+    LOGI(kTag, "Matches: %zu", matches2.size());
     for (const auto &m : matches2) {
-        printf("  Line %d: %s\n", m.line_no, m.line.c_str());
+        LOGD(kTag, "Line %d: %s", m.line_no, m.line.c_str());
     }
 
     // 搜索不存在的内容，验证结果为空
     MiniGrep grep3("elephant");
     auto matches3 = grep3.search_file(tmp_path);
-    printf("\nPattern: \"elephant\"\n");
-    printf("Matches: %zu (expected 0)\n", matches3.size());
+    LOGI(kTag, "Pattern: \"elephant\"");
+    LOGI(kTag, "Matches: %zu (expected 0)", matches3.size());
 
     // 清理临时文件
     ::unlink(tmp_path);
-    printf("\n");
 }
 
 void Stage9Projects::demo_kv_store() {
-    printf("=== Stage 9: SimpleKVStore Demo ===\n\n");
+    LOGI(kTag, "=== Stage 9: SimpleKVStore Demo ===");
 
     const std::string db_path_str = work_path("mmap_learn_kvstore.db");
     const char *db_path = db_path_str.c_str();
@@ -325,44 +330,45 @@ void Stage9Projects::demo_kv_store() {
         store.put("language", "C++");
         store.put("topic", "mmap");
         store.put("level", "intermediate");
-        printf("[put] Inserted 4 key-value pairs\n");
+        LOGI(kTag, "[put] Inserted 4 key-value pairs");
 
         // 读回写入的值
         auto v1 = store.get("name");
         auto v2 = store.get("language");
         auto v3 = store.get("topic");
-        printf("[get] name     = %s\n", v1.value_or("(null)").c_str());
-        printf("[get] language = %s\n", v2.value_or("(null)").c_str());
-        printf("[get] topic    = %s\n", v3.value_or("(null)").c_str());
+        LOGI(kTag, "[get] name     = %s", v1.value_or("(null)").c_str());
+        LOGI(kTag, "[get] language = %s", v2.value_or("(null)").c_str());
+        LOGI(kTag, "[get] topic    = %s", v3.value_or("(null)").c_str());
 
         // 覆盖已有的 key：追加一条新记录，读取时新值胜出
         store.put("name", "Bob");
         auto v4 = store.get("name");
-        printf("[get] name (after overwrite) = %s\n", v4.value_or("(null)").c_str());
+        LOGI(kTag, "[get] name (after overwrite) = %s", v4.value_or("(null)").c_str());
 
         // 删除 key：追加墓碑记录
         store.remove("level");
         auto v5 = store.get("level");
-        printf("[get] level (after remove) = %s (expected null)\n", v5.value_or("(null)").c_str());
+        LOGI(kTag, "[get] level (after remove) = %s (expected null)", v5.value_or("(null)").c_str());
 
         // 空字符串是合法值，不会被当成墓碑
         store.put("note", "");
         auto v6 = store.get("note");
-        printf("[get] note (empty value) = \"%s\" (expected \"\", not null)\n", v6 ? v6->c_str() : "(null)");
+        LOGI(kTag, "[get] note (empty value) = \"%s\" (expected \"\", not null)", v6 ? v6->c_str() : "(null)");
 
         // 列出当前有效的 key
         auto k = store.keys();
-        printf("[keys] Active keys (%zu): ", k.size());
+        std::string joined;
         for (size_t i = 0; i < k.size(); ++i) {
-            printf("%s%s", k[i].c_str(), (i + 1 < k.size()) ? ", " : "");
+            joined += k[i];
+            if (i + 1 < k.size()) joined += ", ";
         }
-        printf("\n\n");
+        LOGI(kTag, "[keys] Active keys (%zu): %s", k.size(), joined.c_str());
     }
     // store 析构：msync，随后 region_ munmap、fd_ close
 
     // 阶段 2：重新打开文件，验证数据已持久化
     {
-        printf("[reopen] Verifying persistence after close/reopen...\n");
+        LOGI(kTag, "[reopen] Verifying persistence after close/reopen...");
         SimpleKVStore store2(db_path);
 
         auto v1 = store2.get("name");
@@ -371,34 +377,34 @@ void Stage9Projects::demo_kv_store() {
         auto v4 = store2.get("level");
         auto v5 = store2.get("note");
 
-        printf("[get] name     = %s (expected Bob)\n", v1.value_or("(null)").c_str());
-        printf("[get] language = %s (expected C++)\n", v2.value_or("(null)").c_str());
-        printf("[get] topic    = %s (expected mmap)\n", v3.value_or("(null)").c_str());
-        printf("[get] level    = %s (expected null - was deleted)\n", v4.value_or("(null)").c_str());
-        printf("[get] note     = \"%s\" (expected \"\" - empty value kept)\n", v5 ? v5->c_str() : "(null)");
+        LOGI(kTag, "[get] name     = %s (expected Bob)", v1.value_or("(null)").c_str());
+        LOGI(kTag, "[get] language = %s (expected C++)", v2.value_or("(null)").c_str());
+        LOGI(kTag, "[get] topic    = %s (expected mmap)", v3.value_or("(null)").c_str());
+        LOGI(kTag, "[get] level    = %s (expected null - was deleted)", v4.value_or("(null)").c_str());
+        LOGI(kTag, "[get] note     = \"%s\" (expected \"\" - empty value kept)", v5 ? v5->c_str() : "(null)");
 
         auto k = store2.keys();
-        printf("[keys] Active keys (%zu): ", k.size());
+        std::string joined;
         for (size_t i = 0; i < k.size(); ++i) {
-            printf("%s%s", k[i].c_str(), (i + 1 < k.size()) ? ", " : "");
+            joined += k[i];
+            if (i + 1 < k.size()) joined += ", ";
         }
-        printf("\n");
+        LOGI(kTag, "[keys] Active keys (%zu): %s", k.size(), joined.c_str());
     }
 
     // 清理存储文件
     ::unlink(db_path);
-    printf("\n");
 }
 
 void Stage9Projects::run_all() {
-    printf("############################################################\n");
-    printf("# Stage 9: Comprehensive Practical Projects                #\n");
-    printf("############################################################\n\n");
+    LOGI(kTag, "############################################################");
+    LOGI(kTag, "# Stage 9: Comprehensive Practical Projects                #");
+    LOGI(kTag, "############################################################");
     demo_mini_grep();
     demo_kv_store();
-    printf("############################################################\n");
-    printf("# Stage 9: All demos complete                              #\n");
-    printf("############################################################\n");
+    LOGI(kTag, "############################################################");
+    LOGI(kTag, "# Stage 9: All demos complete                              #");
+    LOGI(kTag, "############################################################");
 }
 
 } // namespace mmap_learn

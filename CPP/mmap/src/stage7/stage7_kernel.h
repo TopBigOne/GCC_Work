@@ -3,24 +3,24 @@
  * @brief 阶段 7：内核原理观测 —— 看清 mmap 调用之后内核里发生了什么。
  *
  * 本阶段从三个角度理解 mmap 的内核实现：
- * 1. 事件观测：用观察者模式记录 mmap / mprotect / msync / mlock / munmap，
- *    建立"每个系统调用都在修改 VMA 或页表"的直觉
- * 2. 地址空间观测：读取 /proc/self/maps，亲眼看到 mmap 出来的区域出现在进程地址空间里
- * 3. 原理讲解：VMA（vm_area_struct）、do_mmap 调用路径、缺页处理
+ * 1. 事件观测    ：用观察者模式记录 mmap / mprotect / msync / mlock / munmap，
+ *                 建立"每个系统调用都在修改 VMA 或页表"的直觉
+ * 2. 地址空间观测 ：读取 /proc/self/maps，亲眼看到 mmap 出来的区域出现在进程地址空间里
+ * 3. 原理讲解     ：VMA（vm_area_struct）、do_mmap 调用路径、缺页处理
  *
  * 对应知识点：
- * - VMA 与 mm_struct：每次 mmap 至少对应一个 VMA；mprotect 改变部分区域的权限会把 VMA 拆分
- * - 按需分页（demand paging）：mmap 只登记 VMA，不分配物理页；首次访问时触发缺页才分配
- * - 缺页的几种处理：匿名页清零、文件页从 page cache 读入、写时复制（COW）、从 swap 换入
- * - 透明大页（THP）/ MAP_HUGETLB：用 2MB 大页减少 TLB miss
- * - 安全：ASLR 让每次 mmap 的地址随机；W^X 要求同一页不能同时可写和可执行，
- *   JIT 编译器需要先写代码再 mprotect 成可执行
+ * - VMA 与 mm_struct            ：每次 mmap 至少对应一个 VMA；mprotect 改变部分区域的权限会把 VMA 拆分
+ * - 按需分页（demand paging）     ：mmap 只登记 VMA，不分配物理页；首次访问时触发缺页才分配
+ * - 缺页的几种处理                ：匿名页清零、文件页从 page cache 读入、写时复制（COW）、从 swap 换入
+ * - 透明大页（THP）/ MAP_HUGETLB  ：用 2MB 大页减少 TLB miss
+ * - 安全                        ：ASLR 让每次 mmap 的地址随机；W^X 要求同一页不能同时可写和可执行，
+ *                                JIT 编译器需要先写代码再 mprotect 成可执行
  *
  * @par 实际应用
- * - 性能排查：进程 RSS 远小于 VSZ 是正常的（按需分页）；大量 minor fault 意味着在频繁首次触碰新页
- * - 内存泄漏 / 碎片定位：通过 /proc/<pid>/maps、smaps 查看是谁占了地址空间，映射数是否超过 vm.max_map_count
+ * - 性能排查            ：进程 RSS 远小于 VSZ 是正常的（按需分页）；大量 minor fault 意味着在频繁首次触碰新页
+ * - 内存泄漏/碎片定位    ：通过 /proc/<pid>/maps、smaps 查看是谁占了地址空间，映射数是否超过 vm.max_map_count
+ * - 调试崩溃            ：SIGSEGV 的地址落在哪个 VMA、权限是什么，可以判断是越界、写只读页还是访问已 munmap 的区域
  * - JIT / 动态代码生成（V8、LuaJIT、Java HotSpot）：依赖 mmap + mprotect 切换可写 / 可执行
- * - 调试崩溃：SIGSEGV 的地址落在哪个 VMA、权限是什么，可以判断是越界、写只读页还是访问已 munmap 的区域
  *
  * @note /proc/self/maps 是 Linux 专有的；macOS 上没有，需要用 `vmmap <pid>` 命令查看。
  *       VMA、do_mmap 等内核结构也都是 Linux 内核中的概念，XNU 内核的实现不同（vm_map_entry）。
@@ -42,11 +42,11 @@ namespace mmap_learn {
  * @brief 映射相关操作的事件类型，每种对应一个系统调用。
  */
 enum class MemoryEventType {
-    MAPPED,    ///< mmap：新建 VMA
-    UNMAPPED,  ///< munmap：删除 VMA 及其页表项
+    MAPPED,    ///< mmap    ：新建 VMA
+    UNMAPPED,  ///< munmap  ：删除 VMA 及其页表项
     PROTECTED, ///< mprotect：修改 VMA 权限（可能拆分 VMA）
-    SYNCED,    ///< msync：把脏页写回文件
-    LOCKED     ///< mlock：把页锁在物理内存中
+    SYNCED,    ///< msync   ：把脏页写回文件
+    LOCKED     ///< mlock   ：把页锁在物理内存中
 };
 
 /**

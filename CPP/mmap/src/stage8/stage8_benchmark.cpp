@@ -1,5 +1,7 @@
 #include "stage8_benchmark.h"
 
+#include "../log.h"
+
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
@@ -11,6 +13,10 @@
 #include <utility>
 
 namespace mmap_learn {
+
+namespace {
+constexpr const char* kTag = "Stage8";
+} // namespace
 
 // ============================================================
 // Benchmark
@@ -63,8 +69,9 @@ void Benchmark::run() {
     double total_bytes = static_cast<double>(bytes_processed()) * iterations_;
     double throughput_mbs = (total_bytes / (1024.0 * 1024.0)) / elapsed_sec;
 
-    printf("  %-30s | %8.2f MB/s | %10.3f ms/iter | %6d iters | %8.2f ms total\n",
-           name_.c_str(), throughput_mbs, avg_ms, iterations_, elapsed_sec * 1000.0);
+    // 列宽要和 print_header() 一致：13（%8.2f MB/s）、18（%10.3f ms/iter）、12（%6d iters）、17（%8.2f ms total）
+    LOGI(kTag, "    %-30s | %8.2f MB/s | %10.3f ms/iter | %6d iters | %8.2f ms total", name_.c_str(), throughput_mbs,
+         avg_ms, iterations_, elapsed_sec * 1000.0);
 }
 
 // ============================================================
@@ -250,14 +257,15 @@ void ReadRandomRead::teardown() {
 // ============================================================
 
 void Stage8Benchmark::print_header() {
-    printf("  %-30s | %11s | %14s | %12s | %14s\n",
-           "Benchmark", "Throughput", "Avg Time", "Iterations", "Total Time");
-    printf("  %-30s-+-%11s-+-%14s-+-%12s-+-%14s\n",
-           "------------------------------", "-----------", "--------------", "------------", "--------------");
+    // 缩进和列宽要和 Benchmark::run() 里的数据行一致：开头 4 个空格，各列宽 30 / 13 / 18 / 12 / 17
+    LOGI(kTag, "    %-30s | %13s | %18s | %12s | %17s", "Benchmark", "Throughput", "Avg Time", "Iterations",
+         "Total Time");
+    LOGI(kTag, "    %s-+-%s-+-%s-+-%s-+-%s", std::string(30, '-').c_str(), std::string(13, '-').c_str(),
+         std::string(18, '-').c_str(), std::string(12, '-').c_str(), std::string(17, '-').c_str());
 }
 
 void Stage8Benchmark::demo_sequential_comparison() {
-    printf("[Stage8] demo_sequential_comparison: mmap vs read() sequential read\n\n");
+    LOGD(kTag, "1-demo_sequential_comparison: mmap vs read() sequential read");
 
     constexpr size_t kFileSize = 10 * 1024 * 1024; // 10 MB
     constexpr int kIterations = 5;
@@ -270,12 +278,13 @@ void Stage8Benchmark::demo_sequential_comparison() {
     ReadSequentialRead read_bench(kFileSize, kIterations);
     read_bench.run();
 
-    printf("\n");
 }
 
 void Stage8Benchmark::demo_random_comparison() {
-    printf("[Stage8] demo_random_comparison: mmap vs lseek+read() random access\n");
-    printf("  (throughput counts bytes actually read: 100000 reads x 4 B per iteration)\n\n");
+    LOGD(kTag, "   ");
+    LOGD(kTag, "   ");
+    LOGD(kTag, "2-demo_random_comparison: mmap vs lseek+read() random access");
+    LOGI(kTag, "    (throughput counts bytes actually read: 100000 reads x 4 B per iteration)");
 
     constexpr size_t kFileSize = 10 * 1024 * 1024; // 10 MB
     constexpr int kIterations = 3;
@@ -288,11 +297,12 @@ void Stage8Benchmark::demo_random_comparison() {
     ReadRandomRead read_bench(kFileSize, kIterations);
     read_bench.run();
 
-    printf("\n");
 }
 
 void Stage8Benchmark::demo_size_scaling() {
-    printf("[Stage8] demo_size_scaling: Sequential read throughput at different file sizes\n\n");
+    LOGD(kTag, "   ");
+    LOGD(kTag, "   ");
+    LOGD(kTag, "3-demo_size_scaling: Sequential read throughput at different file sizes");
 
     struct SizeConfig {
         size_t size;
@@ -308,7 +318,7 @@ void Stage8Benchmark::demo_size_scaling() {
     constexpr int kIterations = 3;
 
     for (const auto &cfg : sizes) {
-        printf("  --- File size: %s ---\n", cfg.label);
+        LOGI(kTag, "    --- File size: %s ---", cfg.label);
         print_header();
 
         MmapSequentialRead mmap_bench(cfg.size, kIterations);
@@ -317,23 +327,22 @@ void Stage8Benchmark::demo_size_scaling() {
         ReadSequentialRead read_bench(cfg.size, kIterations);
         read_bench.run();
 
-        printf("\n");
     }
 }
 
 void Stage8Benchmark::run_all() {
-    printf("========================================\n");
-    printf("  Stage 8: Performance Benchmarking\n");
-    printf("========================================\n");
-    printf("  Note: hot-cache benchmark - test files stay in page cache, no disk I/O measured\n\n");
+    LOGI(kTag, "========================================");
+    LOGI(kTag, "Stage 8: Performance Benchmarking");
+    LOGI(kTag, "========================================");
+    LOGD(kTag, "Note: hot-cache benchmark - test files stay in page cache, no disk I/O measured");
 
     demo_sequential_comparison();
     demo_random_comparison();
     demo_size_scaling();
 
-    printf("========================================\n");
-    printf("  Stage 8 complete\n");
-    printf("========================================\n");
+    LOGI(kTag, "========================================");
+    LOGI(kTag, "Stage 8 complete");
+    LOGI(kTag, "========================================");
 }
 
 } // namespace mmap_learn

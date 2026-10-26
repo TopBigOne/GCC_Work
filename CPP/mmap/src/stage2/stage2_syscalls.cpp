@@ -1,5 +1,7 @@
 #include "stage2_syscalls.h"
 
+#include "../log.h"
+
 #include <cerrno>
 #include <csetjmp>
 #include <csignal>
@@ -10,6 +12,10 @@
 #include <unistd.h>
 
 namespace mmap_learn {
+
+namespace {
+constexpr const char* kTag = "Stage2";
+} // namespace
 
     // 静态成员变量的定义（.h 里只是声明）。
     // 信号处理函数是普通函数指针，拿不到 this，只能通过静态/全局变量和 demo 交流
@@ -55,7 +61,7 @@ namespace mmap_learn {
         fd_ = mkstemp(path_);
         if (fd_ < 0) {
             // 失败不抛异常，只打印错误；调用方通过 valid() 判断后自行返回
-            printf("[ERROR] mkstemp failed: %s\n", strerror(errno));
+            LOGE(kTag, "mkstemp failed: %s", strerror(errno));
         }
     }
 
@@ -104,12 +110,12 @@ namespace mmap_learn {
                 break;
         }
 
-        printf("  Applying madvise strategy: %s\n", name);
+        LOGD(kTag, "Applying madvise strategy: %s", name);
         int ret = region.advise(advice);
         if (ret < 0) {
-            printf("  [ERROR] madvise(%s) failed: %s\n", name, strerror(errno));
+            LOGE(kTag, "madvise(%s) failed: %s", name, strerror(errno));
         } else {
-            printf("  madvise(%s) succeeded\n", name);
+            LOGD(kTag, "madvise(%s) succeeded", name);
         }
         return ret;
     }
@@ -118,13 +124,13 @@ namespace mmap_learn {
      * 把 MAP_SHARED 映射中的修改强制写回磁盘。
      */
     void Stage2Syscalls::demo_msync() {
-        printf("=== Demo: msync ===\n");
+        LOGI(kTag, "=== Demo: msync ===");
 
         // RAII 临时文件：任何路径退出（含异常）都会 close + unlink
         TempFile tmp("msync");
         if (!tmp.valid())
             return;
-        printf("  Created temp file: %s\n", tmp.path());
+        LOGD(kTag, "Created temp file: %s", tmp.path());
 
         const char *message = "Hello from mmap + msync!";
         size_t msg_len = strlen(message);
@@ -132,24 +138,24 @@ namespace mmap_learn {
 
         // 先把文件扩展到一页大小，保证映射区有文件内容作为后备存储，否则访问会 SIGBUS
         if (ftruncate(tmp.fd(), static_cast<off_t>(page_size)) < 0) {
-            printf("  [ERROR] ftruncate failed: %s\n", strerror(errno));
+            LOGE(kTag, "ftruncate failed: %s", strerror(errno));
             return;
         }
 
         // 共享 + 读写映射
         MmapRegion region(nullptr, page_size, PROT_READ | PROT_WRITE, MAP_SHARED, tmp.fd(), 0);
-        printf("  mmap'd %zu bytes (SHARED | RW)\n", page_size);
+        LOGD(kTag, "mmap'd %zu bytes (SHARED | RW)", page_size);
 
         // 向映射区写入数据（连同结尾的 '\0'）
         memcpy(region.data(), message, msg_len + 1);
-        printf("  Wrote to mmap region: \"%s\"\n", message);
+        LOGD(kTag, "Wrote to mmap region: \"%s\"", message);
 
         // msync 同步刷盘
         int ret = region.sync(MS_SYNC);
         if (ret < 0) {
-            printf("  [ERROR] msync failed: %s\n", strerror(errno));
+            LOGE(kTag, "msync failed: %s", strerror(errno));
         } else {
-            printf("  msync(MS_SYNC) succeeded - data flushed to disk\n");
+            LOGD(kTag, "msync(MS_SYNC) succeeded - data flushed to disk");
         }
 
         // 用 read() 读回文件验证
@@ -157,39 +163,39 @@ namespace mmap_learn {
         char verify_buf[256] = {};
         ssize_t n = read(tmp.fd(), verify_buf, sizeof(verify_buf) - 1);
         if (n > 0) {
-            printf("  Verified via read(): \"%s\"\n", verify_buf);
+            LOGD(kTag, "Verified via read(): \"%s\"", verify_buf);
         } else {
-            printf("  [ERROR] read() verification failed: %s\n", strerror(errno));
+            LOGE(kTag, "read() verification failed: %s", strerror(errno));
         }
 
         // 函数结束时按声明的逆序析构：region 先 munmap，tmp 再 close + unlink
-        printf("  Cleaned up temp file\n\n");
+        LOGD(kTag, "Cleaned up temp file");
     }
 
     /**
      * 运行时把映射区改为只读，再写入时捕获 SIGSEGV。
      */
     void Stage2Syscalls::demo_mprotect() {
-        printf("=== Demo: mprotect ===\n");
+        LOGI(kTag, "=== Demo: mprotect ===");
 
         size_t page_size = static_cast<size_t>(sysconf(_SC_PAGESIZE));
 
         // 匿名读写映射一页
         MmapRegion region(nullptr, page_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
-        printf("  mmap'd anonymous region: %zu bytes (RW)\n", page_size);
+        LOGD(kTag, "mmap'd anonymous region: %zu bytes (RW)", page_size);
 
         // 可写时先写入数据
         const char *msg = "writable data";
         memcpy(region.data(), msg, strlen(msg) + 1);
-        printf("  Wrote data while region is RW: \"%s\"\n", region.as<char>());
+        LOGD(kTag, "Wrote data while region is RW: \"%s\"", region.as<char>());
 
         // 改为只读
         int ret = region.protect(PROT_READ);
         if (ret < 0) {
-            printf("  [ERROR] mprotect(PROT_READ) failed: %s\n", strerror(errno));
+            LOGE(kTag, "mprotect(PROT_READ) failed: %s", strerror(errno));
             return;
         }
-        printf("  mprotect(PROT_READ) succeeded - region is now read-only\n");
+        LOGD(kTag, "mprotect(PROT_READ) succeeded - region is now read-only");
 
         // 安装 SIGSEGV 处理函数（同时装 SIGBUS，兼容 macOS）
         struct sigaction old_segv{}, old_bus{};
@@ -197,7 +203,7 @@ namespace mmap_learn {
         install_signal_handler(SIGBUS, old_bus);
 
         // 尝试写入只读区域
-        printf("  Attempting write to read-only region...\n");
+        LOGD(kTag, "Attempting write to read-only region...");
         s_signal_caught_ = 0;
 
         // sigsetjmp 第一次调用返回 0；信号处理函数 siglongjmp 跳回时返回 1
@@ -205,10 +211,10 @@ namespace mmap_learn {
             // 第一次返回：执行非法写入。volatile 防止编译器把这次写入优化掉
             volatile char *p = static_cast<volatile char *>(region.data());
             *p = 'X'; // 应触发 SIGSEGV
-            printf("  [UNEXPECTED] Write succeeded (should not happen)\n");
+            LOGW(kTag, "[UNEXPECTED] Write succeeded (should not happen)");
         } else {
             // 从信号处理函数 siglongjmp 跳回到这里
-            printf("  Caught SIGBUS/SIGSEGV: write to read-only mmap region (signal=%d)\n", s_signal_caught_);
+            LOGD(kTag, "Caught SIGBUS/SIGSEGV: write to read-only mmap region (signal=%d)", s_signal_caught_);
         }
 
         // 恢复原来的信号处理方式
@@ -217,7 +223,7 @@ namespace mmap_learn {
 
         // 不需要把权限改回 RW：munmap 与页权限无关，只读映射也能直接解除，
         // region 析构时会正常 munmap
-        printf("  Region stays read-only; munmap does not need write permission\n\n");
+        LOGD(kTag, "Region stays read-only; munmap does not need write permission");
     }
 
 
@@ -225,7 +231,7 @@ namespace mmap_learn {
      * 告诉内核接下来的访问模式（顺序 / 即将访问）。
      */
     void Stage2Syscalls::demo_madvise() {
-        printf("=== Demo: madvise ===\n");
+        LOGI(kTag, "=== Demo: madvise ===");
 
         // RAII 临时文件：任何路径退出（含异常）都会 close + unlink
         TempFile tmp("madvise");
@@ -235,19 +241,19 @@ namespace mmap_learn {
         // 创建 1MB 的文件
         constexpr size_t file_size = 1024 * 1024; // 1 MB
         if (ftruncate(tmp.fd(), static_cast<off_t>(file_size)) < 0) {
-            printf("  [ERROR] ftruncate failed: %s\n", strerror(errno));
+            LOGE(kTag, "ftruncate failed: %s", strerror(errno));
             return;
         }
-        printf("  Created 1MB temp file: %s\n", tmp.path());
+        LOGD(kTag, "Created 1MB temp file: %s", tmp.path());
 
         // 映射整个文件
         MmapRegion region(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, tmp.fd(), 0);
-        printf("  mmap'd %zu bytes\n", file_size);
+        LOGD(kTag, "mmap'd %zu bytes", file_size);
 
         // 演示 MADV_SEQUENTIAL
-        printf("\n  [MADV_SEQUENTIAL]\n");
-        printf("  Tells the kernel: expect sequential page references.\n");
-        printf("  Effect: aggressive read-ahead, free pages behind the cursor.\n");
+        LOGD(kTag, "[MADV_SEQUENTIAL]");
+        LOGD(kTag, "Tells the kernel: expect sequential page references.");
+        LOGD(kTag, "Effect: aggressive read-ahead, free pages behind the cursor.");
         apply_madvise_strategy(region, MadviseStrategy::Sequential);
 
         // 模拟顺序访问：每隔一页读 1 个字节，每次都会触发一次缺页
@@ -257,58 +263,58 @@ namespace mmap_learn {
         for (size_t i = 0; i < file_size; i += 4096) {
             sum += data[i];
         }
-        printf("  Sequential scan complete (checksum byte: %u)\n", static_cast<unsigned>(sum));
+        LOGD(kTag, "Sequential scan complete (checksum byte: %u)", static_cast<unsigned>(sum));
 
         // 演示 MADV_WILLNEED
-        printf("\n  [MADV_WILLNEED]\n");
-        printf("  Tells the kernel: these pages will be needed soon.\n");
-        printf("  Effect: initiate read-ahead to populate page cache.\n");
+        LOGD(kTag, "[MADV_WILLNEED]");
+        LOGD(kTag, "Tells the kernel: these pages will be needed soon.");
+        LOGD(kTag, "Effect: initiate read-ahead to populate page cache.");
         apply_madvise_strategy(region, MadviseStrategy::WillNeed);
 
-        printf("  Kernel is now pre-faulting pages into memory\n");
+        LOGD(kTag, "Kernel is now pre-faulting pages into memory");
 
         // region 和 tmp 在函数结束时自动清理（munmap → close + unlink）
-        printf("  Cleaned up temp file\n\n");
+        LOGD(kTag, "Cleaned up temp file");
     }
 
     /**
      * 把页锁定在物理内存中，禁止换出到 swap。
      */
     void Stage2Syscalls::demo_mlock() {
-        printf("=== Demo: mlock / munlock ===\n");
+        LOGI(kTag, "=== Demo: mlock / munlock ===");
 
         size_t page_size = static_cast<size_t>(sysconf(_SC_PAGESIZE));
 
         // 匿名映射一页
         MmapRegion region(nullptr, page_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
-        printf("  mmap'd anonymous page: %zu bytes\n", page_size);
+        LOGD(kTag, "mmap'd anonymous page: %zu bytes", page_size);
 
         // mlock：锁定在物理内存中
         int ret = region.lock();
         if (ret < 0) {
-            printf("  [ERROR] mlock failed: %s (try running as root or increase RLIMIT_MEMLOCK)\n", strerror(errno));
+            LOGE(kTag, "mlock failed: %s (try running as root or increase RLIMIT_MEMLOCK)", strerror(errno));
         } else {
-            printf("  mlock succeeded - page is pinned in physical RAM (no swapping)\n");
+            LOGD(kTag, "mlock succeeded - page is pinned in physical RAM (no swapping)");
         }
 
         // 锁定期间写入敏感数据
         const char *secret = "sensitive-key-material";
         memcpy(region.data(), secret, strlen(secret) + 1);
-        printf("  Wrote sensitive data while page is locked: \"%s\"\n", region.as<char>());
+        LOGD(kTag, "Wrote sensitive data while page is locked: \"%s\"", region.as<char>());
 
         // munlock：允许再次被换出
         ret = region.unlock();
         if (ret < 0) {
-            printf("  [ERROR] munlock failed: %s\n", strerror(errno));
+            LOGE(kTag, "munlock failed: %s", strerror(errno));
         } else {
-            printf("  munlock succeeded - page can now be swapped out\n");
+            LOGD(kTag, "munlock succeeded - page can now be swapped out");
         }
 
-        printf("  Use case: cryptographic keys, passwords - prevent swap leakage\n\n");
+        LOGD(kTag, "Use case: cryptographic keys, passwords - prevent swap leakage");
     }
 
     void Stage2Syscalls::demo_ftruncate_sigbus() {
-        printf("=== Demo: ftruncate + SIGBUS trap ===\n");
+        LOGI(kTag, "=== Demo: ftruncate + SIGBUS trap ===");
 
         // RAII 临时文件：任何路径退出都会 close + unlink
         TempFile tmp("sigbus");
@@ -318,10 +324,10 @@ namespace mmap_learn {
         // 创建一个很小的文件：只有 16 字节
         constexpr size_t file_size = 16;
         if (ftruncate(tmp.fd(), static_cast<off_t>(file_size)) < 0) {
-            printf("  [ERROR] ftruncate failed: %s\n", strerror(errno));
+            LOGE(kTag, "ftruncate failed: %s", strerror(errno));
             return;
         }
-        printf("  Created tiny file: %s (%zu bytes)\n", tmp.path(), file_size);
+        LOGD(kTag, "Created tiny file: %s (%zu bytes)", tmp.path(), file_size);
 
         // 用这个小文件映射一块更大的区域（2 页）
         size_t page_size = static_cast<size_t>(sysconf(_SC_PAGESIZE));
@@ -330,12 +336,12 @@ namespace mmap_learn {
         // 这里直接使用原始 mmap：映射本身会成功（MmapRegion 也一样），问题要到访问时才出现
         void *addr = ::mmap(nullptr, map_size, PROT_READ | PROT_WRITE, MAP_SHARED, tmp.fd(), 0);
         if (addr == MAP_FAILED) {
-            printf("  [ERROR] mmap failed: %s\n", strerror(errno));
+            LOGE(kTag, "mmap failed: %s", strerror(errno));
             return;
         }
-        printf("  mmap'd %zu bytes (2 pages) backed by %zu-byte file\n", map_size, file_size);
-        printf("  The file only covers part of the first page.\n");
-        printf("  Accessing beyond file size (but within mapped region) triggers SIGBUS.\n");
+        LOGD(kTag, "mmap'd %zu bytes (2 pages) backed by %zu-byte file", map_size, file_size);
+        LOGD(kTag, "The file only covers part of the first page.");
+        LOGD(kTag, "Accessing beyond file size (but within mapped region) triggers SIGBUS.");
 
         // 安装 SIGBUS 处理函数；同时装 SIGSEGV，个别平台对这类越界访问发送的是 SIGSEGV
         struct sigaction old_bus{}, old_segv{};
@@ -346,31 +352,31 @@ namespace mmap_learn {
         // 在文件范围内访问 —— 正常
         volatile char *p = static_cast<volatile char *>(addr);
         p[0] = 'A';
-        printf("  Write at offset 0: OK\n");
+        LOGD(kTag, "Write at offset 0: OK");
 
         // 访问第二页：整页都在文件末尾之外，大多数系统上会触发 SIGBUS
-        printf("  Attempting access at offset %zu (beyond file, second page)...\n", page_size);
+        LOGD(kTag, "Attempting access at offset %zu (beyond file, second page)...", page_size);
 
         if (sigsetjmp(s_jump_buf_, 1) == 0) {
             volatile char c = p[page_size]; // 访问第二页 —— SIGBUS
             (void) c;
-            printf("  [NOTE] Access succeeded (kernel may have zero-filled the page)\n");
+            LOGD(kTag, "[NOTE] Access succeeded (kernel may have zero-filled the page)");
         } else {
-            printf("  Caught SIGBUS/SIGSEGV: access beyond end of file in mmap region (signal=%d)\n", s_signal_caught_);
-            printf("  This happens when accessing mmap'd pages beyond the backing file's size.\n");
+            LOGD(kTag, "Caught SIGBUS/SIGSEGV: access beyond end of file in mmap region (signal=%d)", s_signal_caught_);
+            LOGD(kTag, "This happens when accessing mmap'd pages beyond the backing file's size.");
         }
 
         // 恢复信号处理方式并清理（tmp 在函数结束时自动 close + unlink）
         restore_signal_handler(SIGBUS, old_bus);
         restore_signal_handler(SIGSEGV, old_segv);
         ::munmap(addr, map_size);
-        printf("  Cleaned up temp file\n\n");
+        LOGD(kTag, "Cleaned up temp file");
     }
 
     void Stage2Syscalls::run_all() {
-        printf("################################################################\n");
-        printf("# Stage 2: Companion System Calls for mmap                     #\n");
-        printf("################################################################\n\n");
+        LOGI(kTag, "################################################################");
+        LOGI(kTag, "# Stage 2: Companion System Calls for mmap                     #");
+        LOGI(kTag, "################################################################");
 
         demo_msync();
         demo_mprotect();
@@ -378,9 +384,9 @@ namespace mmap_learn {
         demo_mlock();
         demo_ftruncate_sigbus();
 
-        printf("################################################################\n");
-        printf("# Stage 2 Complete                                             #\n");
-        printf("################################################################\n");
+        LOGI(kTag, "################################################################");
+        LOGI(kTag, "# Stage 2 Complete                                             #");
+        LOGI(kTag, "################################################################");
     }
 
 } // namespace mmap_learn

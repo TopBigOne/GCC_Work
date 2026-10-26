@@ -1,10 +1,11 @@
 #include "stage4_shared_mem.h"
 
+#include "../log.h"
+
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
 #include <fcntl.h>
-#include <iostream>
 #include <new>
 #include <stdexcept>
 #include <sys/mman.h>
@@ -13,6 +14,10 @@
 #include <utility>
 
 namespace mmap_learn {
+
+namespace {
+constexpr const char* kTag = "Stage4";
+} // namespace
 
     // ============================================================
     // SharedMemory
@@ -99,7 +104,7 @@ namespace mmap_learn {
      * 子进程写入字符串后退出，父进程等待后读到同样的内容。
      */
     void Stage4SharedMem::demo_fork_shared() {
-        printf("\n===== Stage4-1: demo_fork_shared =====\n");
+        LOGI(kTag, "===== Stage4-1: demo_fork_shared =====");
 
         const size_t kSize = 4096;
         MmapRegion region(nullptr, kSize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
@@ -110,7 +115,7 @@ namespace mmap_learn {
         // fork 在父进程里返回子进程的 PID，在子进程里返回 0，失败返回 -1
         pid_t child_pid = fork();
         if (child_pid < 0) {
-            perror("fork in error");
+            LOGE(kTag, "fork in error: %s", strerror(errno));
             return;
         }
 
@@ -118,14 +123,14 @@ namespace mmap_learn {
             // 子进程：向共享内存写入字符串
             const char *msg = "Hello from child process!";
             std::memcpy(buf, msg, std::strlen(msg) + 1);
-            printf("  [child ] wrote: \"%s\"\n", buf);
+            LOGD(kTag, "[child ] wrote: \"%s\"", buf);
             // 用 _exit 而不是 exit/return：不执行析构和 atexit，避免子进程重复释放父进程的资源
             ::_exit(0);
         } else {
             // 父进程：等待子进程结束后再读取
             int status = 0;
             ::waitpid(child_pid, &status, 0);
-            printf("  [parent] read : \"%s\"\n", buf);
+            LOGD(kTag, "[parent] read : \"%s\"", buf);
         }
     }
 
@@ -133,7 +138,7 @@ namespace mmap_learn {
      * 通过 shm_open 按名字打开同一块共享内存。
      */
     void Stage4SharedMem::demo_shm_open() {
-        printf("\n===== Stage4-2: demo_shm_open =====\n");
+        LOGI(kTag, "===== Stage4-2: demo_shm_open =====");
 
         const char *kName = "/mmap_learn_stage4";
         const size_t kSize = 4096;
@@ -144,7 +149,7 @@ namespace mmap_learn {
 
         pid_t child_pid = fork();
         if (child_pid < 0) {
-            perror("fork in error");
+            LOGE(kTag, "fork in error: %s", strerror(errno));
             return;
         }
 
@@ -153,18 +158,18 @@ namespace mmap_learn {
             SharedMemory child_shm(kName, kSize, false);
             const char *rawMsg = "Data from child via shm_open!";
             std::memcpy(child_shm.data(), rawMsg, std::strlen(rawMsg) + 1);
-            printf("  [child ] wrote: \"%s\"\n", static_cast<char *>(child_shm.data()));
+            LOGD(kTag, "[child ] wrote: \"%s\"", static_cast<char *>(child_shm.data()));
             // 子进程也继承了父进程的 shm（owner_ == true），用 _exit 跳过析构，避免子进程提前 shm_unlink
             ::_exit(0);
         } else {
             int status = 0;
             ::waitpid(child_pid, &status, 0);
-            printf("  [parent] read : \"%s\"\n", static_cast<char *>(shm.data()));
+            LOGD(kTag, "[parent] read : \"%s\"", static_cast<char *>(shm.data()));
         }
     }
 
     void Stage4SharedMem::demo_ring_buffer() {
-        printf("\n===== Stage4-3: demo_ring_buffer =====\n");
+        LOGI(kTag, "===== Stage4-3: demo_ring_buffer =====");
 
         // 类型别名（等价于 typedef RingBuffer<int, 16> Ring;）：之后写 Ring 就等于写 RingBuffer<int, 16>。
         //   int : 队列里存放的元素类型
@@ -189,10 +194,10 @@ namespace mmap_learn {
         fflush(stdout);
         pid_t child_pid = fork();
         // Note: 因为开辟了子进程，下面代码会走2遍
-        std::cout << "---> sw sw sw...."<<std::endl;
+        LOGD(kTag, "---> sw sw sw....");
         fflush(stdout);
         if (child_pid < 0) {
-            perror("fork");
+            LOGE(kTag, "fork: %s", strerror(errno));
             return;
         }
 
@@ -201,35 +206,35 @@ namespace mmap_learn {
             // 在子进程里，getpid() 拿到的是自己的 PID
             pid_t childPid = getpid();
             pid_t parentPid = getppid();
-            printf("  childPid : %d\n", childPid);
-            printf("  child_pid   : %d\n", child_pid);
-            printf("  parentPid2 : %d\n", parentPid);
+            LOGD(kTag, "childPid : %d", childPid);
+            LOGD(kTag, "child_pid   : %d", child_pid);
+            LOGD(kTag, "parentPid2 : %d", parentPid);
             // 子进程（生产者）：写入 kCount 个数
             for (int i = 0; i < kCount; ++i) {
                 while (!ring->push(i * 10)) {
                     ::usleep(100); // 队列满时稍等再试
                 }
-                printf("  [child 生产] pushed: %d\n", i * 10);
+                LOGD(kTag, "[child 生产] pushed: %d", i * 10);
                 fflush(stdout); // _exit 不会刷新 stdio 缓冲，这里逐条刷新
             }
             // 父子进程并发运行，输出可能交错，没有固定的"分界点"，所以不画分隔线，
             // 而是由子进程自己报告"生产完毕"：无论和父进程的输出怎么交错，这句话都成立
-            printf("  [child 生产] 全部 %d 个已生产完毕✅✅✅\n", kCount);
+            LOGD(kTag, "[child 生产] 全部 %d 个已生产完毕✅✅✅", kCount);
             fflush(stdout);
             _exit(0);
         } else {
             // 父进程（消费者）：与子进程并发地取数，直到收齐 kCount 个，然后再回收子进程。
             // 如果先 waitpid 再取，队列满时子进程等父进程取、父进程等子进程退出，会互相等待（死锁）。
             pid_t parentPid = getpid();
-            printf("  parentPid2: %d\n", parentPid);
-            printf("  [parent] child_pid: %d（父进程里 fork 返回的是子进程的 PID）\n", child_pid);
+            LOGD(kTag, "parentPid2: %d", parentPid);
+            LOGD(kTag, "[parent] child_pid: %d（父进程里 fork 返回的是子进程的 PID）", child_pid);
             int val = 0;
             int popped = 0;
             int status = 0;
             bool child_done = false;
             while (popped < kCount) {
                 if (ring->pop(val)) {
-                    printf("  [parent 消费] popped: %d\n", val);
+                    LOGD(kTag, "[parent 消费] popped: %d", val);
                     ++popped;
                 } else if (child_done) {
                     break; // 子进程已退出且队列已空，不会再有数据（子进程异常退出时防止死等）
@@ -241,20 +246,20 @@ namespace mmap_learn {
 
             if (!child_done)
                 ::waitpid(child_pid, &status, 0);
-            printf("  [parent] total popped: %d items\n", popped);
+            LOGD(kTag, "[parent] total popped: %d items", popped);
         }
     }
 
     void Stage4SharedMem::run_all() {
-        printf("========================================\n");
-        printf("  Stage 4: IPC Shared Memory\n");
-        printf("========================================\n");
+        LOGI(kTag, "========================================");
+        LOGI(kTag, "Stage 4: IPC Shared Memory");
+        LOGI(kTag, "========================================");
 
         demo_fork_shared();
         demo_shm_open();
         demo_ring_buffer();
 
-        printf("\n===== Stage4: all demos complete =====\n");
+        LOGI(kTag, "===== Stage4: all demos complete =====");
     }
 
 } // namespace mmap_learn

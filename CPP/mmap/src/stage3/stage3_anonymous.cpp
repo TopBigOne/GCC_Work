@@ -1,5 +1,7 @@
 #include "stage3_anonymous.h"
 
+#include "../log.h"
+
 #include <cerrno>
 #include <cstdint>
 #include <cstdio>
@@ -7,6 +9,10 @@
 #include <unistd.h>
 
 namespace mmap_learn {
+
+namespace {
+constexpr const char* kTag = "Stage3";
+} // namespace
 
 // ============================================================
 // ArenaAllocator
@@ -44,14 +50,14 @@ ArenaAllocator &ArenaAllocator::operator=(ArenaAllocator &&other) noexcept {
 
 void *ArenaAllocator::alloc(size_t n, size_t align) {
     if (!region_.valid()) {
-        std::printf("[ArenaAllocator] invalid arena (moved-from), requested %zu\n", n);
+        LOGW(kTag, "[ArenaAllocator] invalid arena (moved-from), requested %zu", n);
         return nullptr;
     }
     size_t aligned = alignUp(offset_, align);
     // 写成减法比较，避免 aligned + n 溢出回绕后误判为"空间足够"
     if (aligned > capacity_ || n > capacity_ - aligned) {
         size_t remaining = aligned > capacity_ ? 0 : capacity_ - aligned;
-        std::printf("[ArenaAllocator] out of memory: requested %zu, remaining %zu\n", n, remaining);
+        LOGW(kTag, "[ArenaAllocator] out of memory: requested %zu, remaining %zu", n, remaining);
         return nullptr;
     }
     void *ptr = static_cast<uint8_t *>(region_.data()) + aligned;
@@ -72,7 +78,7 @@ size_t ArenaAllocator::remaining() const { return capacity_ - offset_; }
 // ============================================================
 
 void Stage3Anonymous::demo_anonymous_map() {
-    std::printf("\n========== Stage3: Anonymous Mapping ==========\n");
+    LOGI(kTag, "========== Stage3: Anonymous Mapping ==========");
 
     constexpr size_t kSize = 4096;
     MmapRegion region = MmapBuilder()
@@ -82,7 +88,7 @@ void Stage3Anonymous::demo_anonymous_map() {
                             .anonymous()
                             .build();
 
-    std::printf("[anonymous] mapped %zu bytes at %p\n", region.size(), region.data());
+    LOGI(kTag, "[anonymous] mapped %zu bytes at %p", region.size(), region.data());
 
     // 验证内容全为 0（匿名映射的页保证初始为 0）
     const uint8_t *bytes = region.as<uint8_t>();
@@ -93,45 +99,46 @@ void Stage3Anonymous::demo_anonymous_map() {
             break;
         }
     }
-    std::printf("[anonymous] zero-initialized: %s\n", allZero ? "YES" : "NO");
+    LOGI(kTag, "[anonymous] zero-initialized: %s", allZero ? "YES" : "NO");
 
     // 写入一个字符串再读回来，这次写入才真正分配物理页
     const char *msg = "Hello from anonymous mmap!";
     std::memcpy(region.data(), msg, std::strlen(msg) + 1);
-    std::printf("[anonymous] wrote:  \"%s\"\n", region.as<char>());
+    LOGI(kTag, "[anonymous] wrote:  \"%s\"", region.as<char>());
 
     // 在偏移 256 处写入整数，演示把映射当作任意类型的缓冲区使用
     int *intPtr = reinterpret_cast<int *>(static_cast<uint8_t *>(region.data()) + 256);
     for (int i = 0; i < 5; ++i) {
         intPtr[i] = (i + 1) * 100;
     }
-    std::printf("[anonymous] integers at offset 256:");
+    char ints_buf[64];
+    int ints_len = 0;
     for (int i = 0; i < 5; ++i) {
-        std::printf(" %d", intPtr[i]);
+        ints_len += std::snprintf(ints_buf + ints_len, sizeof(ints_buf) - ints_len, " %d", intPtr[i]);
     }
-    std::printf("\n");
+    LOGI(kTag, "[anonymous] integers at offset 256:%s", ints_buf);
 
-    std::printf("[anonymous] region will be munmap'd on scope exit (RAII)\n");
+    LOGI(kTag, "[anonymous] region will be munmap'd on scope exit (RAII)");
 }
 
 void Stage3Anonymous::demo_arena_allocator() {
-    std::printf("\n========== Stage3: Arena Allocator ==========\n");
+    LOGI(kTag, "========== Stage3: Arena Allocator ==========");
 
     ArenaAllocator arena(4096);
-    std::printf("[arena] capacity: %zu, used: %zu, remaining: %zu\n", arena.capacity(), arena.used(),
+    LOGI(kTag, "[arena] capacity: %zu, used: %zu, remaining: %zu", arena.capacity(), arena.used(),
                 arena.remaining());
 
     // 分配两个 int
     int *a = arena.create<int>(42);
     int *b = arena.create<int>(99);
-    std::printf("[arena] int *a = %d (at %p)\n", *a, static_cast<void *>(a));
-    std::printf("[arena] int *b = %d (at %p)\n", *b, static_cast<void *>(b));
+    LOGI(kTag, "[arena] int *a = %d (at %p)", *a, static_cast<void *>(a));
+    LOGI(kTag, "[arena] int *b = %d (at %p)", *b, static_cast<void *>(b));
 
     // 分配 Point 结构体，注意地址会按 alignof(Point) 对齐
     Point *p1 = arena.create<Point>(1.0, 2.0, 3.0);
     Point *p2 = arena.create<Point>(4.0, 5.0, 6.0);
-    std::printf("[arena] Point p1 = (%.1f, %.1f, %.1f) at %p\n", p1->x, p1->y, p1->z, static_cast<void *>(p1));
-    std::printf("[arena] Point p2 = (%.1f, %.1f, %.1f) at %p\n", p2->x, p2->y, p2->z, static_cast<void *>(p2));
+    LOGI(kTag, "[arena] Point p1 = (%.1f, %.1f, %.1f) at %p", p1->x, p1->y, p1->z, static_cast<void *>(p1));
+    LOGI(kTag, "[arena] Point p2 = (%.1f, %.1f, %.1f) at %p", p2->x, p2->y, p2->z, static_cast<void *>(p2));
 
     // 用 alloc 分配原始 double 数组
     constexpr size_t kArrLen = 10;
@@ -139,47 +146,48 @@ void Stage3Anonymous::demo_arena_allocator() {
     for (size_t i = 0; i < kArrLen; ++i) {
         arr[i] = static_cast<double>(i) * 1.1;
     }
-    std::printf("[arena] double array[0..4]: %.1f %.1f %.1f %.1f %.1f\n", arr[0], arr[1], arr[2], arr[3], arr[4]);
+    LOGI(kTag, "[arena] double array[0..4]: %.1f %.1f %.1f %.1f %.1f", arr[0], arr[1], arr[2], arr[3], arr[4]);
 
-    std::printf("[arena] after allocations => used: %zu, remaining: %zu\n", arena.used(), arena.remaining());
+    LOGI(kTag, "[arena] after allocations => used: %zu, remaining: %zu", arena.used(), arena.remaining());
 
     // 整体回收
     arena.reset();
-    std::printf("[arena] after reset()     => used: %zu, remaining: %zu\n", arena.used(), arena.remaining());
+    LOGI(kTag, "[arena] after reset()     => used: %zu, remaining: %zu", arena.used(), arena.remaining());
 
     // 再次分配，地址与第一次分配的 a 相同，说明内存被复用
     int *c = arena.create<int>(777);
-    std::printf("[arena] after reset, new int *c = %d (at %p)\n", *c, static_cast<void *>(c));
-    std::printf("[arena] reuse confirmed: address %p is within the same arena region\n", static_cast<void *>(c));
+    LOGI(kTag, "[arena] after reset, new int *c = %d (at %p)", *c, static_cast<void *>(c));
+    LOGI(kTag, "[arena] reuse confirmed: address %p is within the same arena region", static_cast<void *>(c));
 }
 
 void Stage3Anonymous::demo_process_maps() {
-    std::printf("\n========== Stage3: Process Memory Maps ==========\n");
+    LOGI(kTag, "========== Stage3: Process Memory Maps ==========");
 
     pid_t pid = ::getpid();
 
 #ifdef __linux__
     // Linux：直接读取 /proc/self/maps
-    std::printf("[maps] reading /proc/self/maps (pid=%d):\n", pid);
+    LOGI(kTag, "[maps] reading /proc/self/maps (pid=%d):", pid);
     FILE *f = std::fopen("/proc/self/maps", "r");
     if (!f) {
-        std::printf("[maps] failed to open /proc/self/maps: %s\n", std::strerror(errno));
+        LOGE(kTag, "[maps] failed to open /proc/self/maps: %s", std::strerror(errno));
         return;
     }
     char line[512];
     int count = 0;
     while (std::fgets(line, sizeof(line), f) && count < 30) {
-        std::printf("  %s", line);
+        line[std::strcspn(line, "\n")] = '\0'; // 去掉 fgets 保留的换行，LOGD 会自己换行
+        LOGD(kTag, "%s", line);
         ++count;
     }
     if (count == 30) {
-        std::printf("  ... (truncated, showing first 30 lines)\n");
+        LOGD(kTag, "... (truncated, showing first 30 lines)");
     }
     std::fclose(f);
 #elif defined(__APPLE__)
     // macOS：没有 /proc，改用 vmmap 查看
-    std::printf("[maps] macOS detected. /proc/self/maps is not available.\n");
-    std::printf("[maps] process PID = %d\n", pid);
+    LOGW(kTag, "[maps] macOS detected. /proc/self/maps is not available.");
+    LOGI(kTag, "[maps] process PID = %d", pid);
 
     // 再建一个 64KB 匿名映射，并在它仍然存活时运行 vmmap，演示它会出现在 vmmap 输出中
     MmapRegion probe = MmapBuilder()
@@ -188,7 +196,7 @@ void Stage3Anonymous::demo_process_maps() {
                            .priv()
                            .anonymous()
                            .build();
-    std::printf("[maps] created a 64KB anonymous mapping at %p for inspection\n", probe.data());
+    LOGI(kTag, "[maps] created a 64KB anonymous mapping at %p for inspection", probe.data());
 
     // vmmap 打印的地址是不带 0x 的小写十六进制，例如 "104c1c000-104c2c000"；匹配 "起始地址-" 只找以 probe 开头的区域
     char addr_hex[32];
@@ -202,8 +210,9 @@ void Stage3Anonymous::demo_process_maps() {
         char line[512];
         while (std::fgets(line, sizeof(line), p)) {
             if (std::strstr(line, addr_hex)) {
-                if (matched == 0) std::printf("[maps] vmmap lines containing the probe region:\n");
-                std::printf("  %s", line);
+                if (matched == 0) LOGI(kTag, "[maps] vmmap lines containing the probe region:");
+                line[std::strcspn(line, "\n")] = '\0'; // 去掉 fgets 保留的换行，LOGD 会自己换行
+                LOGD(kTag, "%s", line);
                 ++matched;
             }
         }
@@ -212,13 +221,13 @@ void Stage3Anonymous::demo_process_maps() {
 
     if (matched == 0) {
         // vmmap 不可用或没有权限时，退化为提示用户手动查看
-        std::printf("[maps] could not query vmmap automatically. To inspect memory regions, run:\n");
-        std::printf("[maps]   vmmap %d\n", pid);
-        std::printf("[maps]   vmmap --summary %d\n", pid);
-        std::printf("[maps] this region would show up in vmmap output as MALLOC or unnamed\n");
+        LOGW(kTag, "[maps] could not query vmmap automatically. To inspect memory regions, run:");
+        LOGI(kTag, "[maps]   vmmap %d", pid);
+        LOGI(kTag, "[maps]   vmmap --summary %d", pid);
+        LOGI(kTag, "[maps] this region would show up in vmmap output as MALLOC or unnamed");
     }
 #else
-    std::printf("[maps] unsupported platform. PID = %d\n", pid);
+    LOGW(kTag, "[maps] unsupported platform. PID = %d", pid);
 #endif
 }
 
