@@ -22,6 +22,53 @@
 
 ---
 
+## 先看一眼：这个 demo 就做 4 步
+
+不管映射哪种设备，[`DeviceMapper::run()`](stage5_device.cpp#L42) 都按固定的 4 步走：
+
+```cpp
+void DeviceMapper::run() {
+    open_device();     // ① 打开设备文件 /dev/zero
+    map_memory();      // ② 用 mmap 把它映射进内存
+    process_data();    // ③ 读写这块内存
+    unmap_memory();    // ④ 解除映射、关闭文件
+}
+```
+
+> 上面是简化后的样子，实际代码里每一步都会检查是否成功，失败就提前结束并释放资源。
+
+`/dev/zero` 是一个特殊的"文件"，读它永远得到 0。用它做例子，是因为它不需要任何真实硬件，最适合演示**"设备文件也能像普通文件一样 mmap"**这件事。摄像头、屏幕、显卡的 mmap 也是同样的 4 步，只是设备不同。
+
+### 对照日志看每一步
+
+**Linux 上**（4 步全部成功）：
+
+```
+① [DevZeroMapper] /dev/zero opened, fd = 3
+② [DevZeroMapper] Mapped at address 0xffff87b4c000
+③ [DevZeroMapper] Memory is zero-initialized: YES           ← 读：全是 0
+③ [DevZeroMapper] Wrote message: "Hello from /dev/zero mmap!"
+③ [DevZeroMapper] Read back:     "Hello from /dev/zero mmap!"
+④ [DevZeroMapper] munmap done.
+④ [DevZeroMapper] /dev/zero closed.
+```
+
+**macOS 上**（第 ② 步失败，后面两步不执行）：
+
+```
+① [DevZeroMapper] /dev/zero opened, fd = 3                                  ← 打开成功
+② E Stage5: [DevZeroMapper] mmap failed: Operation not supported by device  ← 映射失败
+   E Stage5: [DeviceMapper] map_memory() failed, aborting.                  ← 放弃，③④ 跳过
+```
+
+macOS 的 `/dev/zero` 能打开、能 `read`，但**不支持 mmap**，这是系统本身的限制，不是代码的问题。所以在 Mac 上看到这两行 `E` 是**预期结果**。
+
+### 一句话
+
+> Stage 5 演示的是：**mmap 不只能映射普通文件，还能映射设备**。设备的内存（显存、摄像头缓冲区……）会直接出现在你的进程地址空间里，读写它就像读写一个普通数组，不需要 `read()`/`write()` 拷贝。下面的图和知识点讲的是这背后内核和驱动是怎么做到的。
+
+---
+
 ## 一张图看懂：设备 mmap 的完整路径
 
 ![设备 mmap 调用路径：用户态五步、内核 do_mmap 与驱动回调、最终映射到的四类物理内存](images/device-mmap-path.svg)

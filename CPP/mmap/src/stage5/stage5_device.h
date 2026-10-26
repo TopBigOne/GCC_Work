@@ -61,22 +61,24 @@ protected:
     size_t mapped_size_ = 0;         ///< 映射长度（字节）
 
     /**
-     * @brief 打开设备文件，结果保存在 fd_。
+     * @brief ① 打开设备文件 /dev/zero，结果保存在 fd_。
      * @return 成功返回 true
      */
     virtual bool open_device() = 0;
 
     /**
-     * @brief 查询设备参数并 mmap，结果保存在 mapped_addr_ / mapped_size_。
+     * @brief ：② 用 mmap 把它映射进内存
+     * 查询设备参数并 mmap，结果保存在 mapped_addr_ / mapped_size_。
      * @return 成功返回 true；失败时 run() 会负责关闭 fd_
      */
     virtual bool map_memory() = 0;
 
-    /** @brief 通过映射地址读写设备数据。 */
+    /**
+    * brief ③ 读写这块内存，通过映射地址读写设备数据。 */
     virtual void process_data() = 0;
 
     /**
-     * @brief munmap 并关闭设备。
+     * @brief ④ 解除映射、关闭文件，munmap 并关闭设备。
      * @note 实现中释放后需把 mapped_addr_ 置为 MAP_FAILED、fd_ 置为 -1，
      *       这样析构时的 release_resources() 不会重复释放。
      */
