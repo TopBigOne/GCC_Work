@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstring>
 #include <fcntl.h>
+#include <iostream>
 #include <new>
 #include <stdexcept>
 #include <sys/mman.h>
@@ -184,42 +185,57 @@ namespace mmap_learn {
 
         // 生产者要写入的条目数；可以大于队列容量（N-1），因为父进程会同时消费
         const int kCount = 10;
-
         // fork 前清空 stdio 缓冲，避免缓冲区内容被复制到子进程后重复输出
         fflush(stdout);
-
-        pid_t child_pid = ::fork();
+        pid_t child_pid = fork();
+        // Note: 因为开辟了子进程，下面代码会走2遍
+        std::cout << "---> sw sw sw...."<<std::endl;
+        fflush(stdout);
         if (child_pid < 0) {
             perror("fork");
             return;
         }
 
+        // 进程里的 child_pid 是子进程的 PID，是一个正数。只有在子进程里，它的值才是 0。
         if (child_pid == 0) {
+            // 在子进程里，getpid() 拿到的是自己的 PID
+            pid_t childPid = getpid();
+            pid_t parentPid = getppid();
+            printf("  childPid : %d\n", childPid);
+            printf("  child_pid   : %d\n", child_pid);
+            printf("  parentPid2 : %d\n", parentPid);
             // 子进程（生产者）：写入 kCount 个数
             for (int i = 0; i < kCount; ++i) {
                 while (!ring->push(i * 10)) {
                     ::usleep(100); // 队列满时稍等再试
                 }
-                printf("  [child ] pushed: %d\n", i * 10);
+                printf("  [child 生产] pushed: %d\n", i * 10);
                 fflush(stdout); // _exit 不会刷新 stdio 缓冲，这里逐条刷新
             }
-            ::_exit(0);
+            // 父子进程并发运行，输出可能交错，没有固定的"分界点"，所以不画分隔线，
+            // 而是由子进程自己报告"生产完毕"：无论和父进程的输出怎么交错，这句话都成立
+            printf("  [child 生产] 全部 %d 个已生产完毕✅✅✅\n", kCount);
+            fflush(stdout);
+            _exit(0);
         } else {
             // 父进程（消费者）：与子进程并发地取数，直到收齐 kCount 个，然后再回收子进程。
             // 如果先 waitpid 再取，队列满时子进程等父进程取、父进程等子进程退出，会互相等待（死锁）。
+            pid_t parentPid = getpid();
+            printf("  parentPid2: %d\n", parentPid);
+            printf("  [parent] child_pid: %d（父进程里 fork 返回的是子进程的 PID）\n", child_pid);
             int val = 0;
             int popped = 0;
             int status = 0;
             bool child_done = false;
             while (popped < kCount) {
                 if (ring->pop(val)) {
-                    printf("  [parent] popped: %d\n", val);
+                    printf("  [parent 消费] popped: %d\n", val);
                     ++popped;
                 } else if (child_done) {
                     break; // 子进程已退出且队列已空，不会再有数据（子进程异常退出时防止死等）
                 } else {
-                    child_done = ::waitpid(child_pid, &status, WNOHANG) == child_pid;
-                    ::usleep(100); // 队列空时稍等再试
+                    child_done = waitpid(child_pid, &status, WNOHANG) == child_pid;
+                    usleep(100); // 队列空时稍等再试
                 }
             }
 
