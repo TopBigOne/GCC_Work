@@ -38,7 +38,7 @@ int munmap(void *addr, size_t length);
 - [x] 用 mmap 修改文件内容（`MAP_SHARED` + `PROT_WRITE`），再用 cat 验证
 - [x] 对比 `MAP_PRIVATE` 与 `MAP_SHARED` 修改后的区别
 
-> 代码：`src/stage1_basic.hpp`
+> 代码：[`src/stage1/`](src/stage1/)　·　学习笔记：[stage1_basic.md](src/stage1/stage1_basic.md)
 
 ---
 
@@ -56,7 +56,7 @@ int munmap(void *addr, size_t length);
 
 > **常见坑**：映射超出文件大小的区域，访问会触发 `SIGBUS`。
 
-> 代码：`src/stage2_syscalls.hpp`
+> 代码：[`src/stage2/`](src/stage2/)　·　学习笔记：[stage2_syscalls.md](src/stage2/stage2_syscalls.md)
 
 ---
 
@@ -68,7 +68,7 @@ int munmap(void *addr, size_t length);
 - 用 `/proc/self/maps`、`/proc/self/smaps` 观察进程的映射情况
 - **实践**：写一个简单的 Arena / 内存池，底层用 mmap
 
-> 代码：`src/stage3_anonymous.hpp`
+> 代码：[`src/stage3/`](src/stage3/)　·　学习笔记：[stage3_anonymous.md](src/stage3/stage3_anonymous.md)
 
 ---
 
@@ -79,7 +79,7 @@ int munmap(void *addr, size_t length);
 - 同步问题：共享内存本身不提供同步，需配合信号量、`pthread_mutex`（`PTHREAD_PROCESS_SHARED`）或原子操作
 - **实践**：两个进程通过共享内存实现生产者/消费者环形缓冲区
 
-> 代码：`src/stage4_shared_mem.hpp`
+> 代码：[`src/stage4/`](src/stage4/)　·　学习笔记：[stage4_shared_mem.md](src/stage4/stage4_shared_mem.md)
 
 ---
 
@@ -91,7 +91,7 @@ int munmap(void *addr, size_t length);
 - 驱动侧：`file_operations.mmap`、`remap_pfn_range`、`vm_operations_struct`
 - 缓存一致性：cached / uncached / write-combine 映射，以及 DMA 场景下的同步
 
-> 代码：`src/stage5_device.hpp`
+> 代码：[`src/stage5/`](src/stage5/)　·　学习笔记：[stage5_device.md](src/stage5/stage5_device.md)
 
 ---
 
@@ -114,7 +114,7 @@ int munmap(void *addr, size_t length);
 - 透明大页（THP）、`MAP_HUGETLB` 与 NUMA 影响
 - 安全相关：ASLR、W^X、`mprotect` 与 JIT
 
-> 代码：`src/stage7_kernel.hpp`
+> 代码：[`src/stage7/`](src/stage7/)　·　学习笔记：[stage7_kernel.md](src/stage7/stage7_kernel.md)
 
 ---
 
@@ -127,7 +127,7 @@ int munmap(void *addr, size_t length);
 - 多线程访问同一映射的注意事项
 - 用 `perf`、`strace`、`/proc/<pid>/status`（VmRSS）观察实际行为
 
-> 代码：`src/stage8_benchmark.hpp`
+> 代码：[`src/stage8/`](src/stage8/)　·　学习笔记：[stage8_benchmark.md](src/stage8/stage8_benchmark.md)
 
 ---
 
@@ -141,7 +141,7 @@ int munmap(void *addr, size_t length);
 | V4L2 抓图程序 | mmap 取摄像头帧并保存为文件 |
 | 自制内存池 / arena allocator | 匿名映射为底层 |
 
-> 代码：`src/stage9_projects.hpp`
+> 代码：[`src/stage9/`](src/stage9/)　·　学习笔记：[stage9_projects.md](src/stage9/stage9_projects.md)
 
 ---
 
@@ -163,17 +163,24 @@ mmap/
 ├── README.md
 ├── hello.txt                    # 测试用文件
 ├── main.cpp                     # 入口，菜单选择各阶段 demo
+├── doc/                         # 跨阶段的专题文档（系统调用全景图等）
 └── src/
-    ├── mmap_wrapper.hpp         # RAII 封装 + Builder 模式
-    ├── stage1_basic.hpp         # 阶段 1：基本用法
-    ├── stage2_syscalls.hpp      # 阶段 2：配套系统调用
-    ├── stage3_anonymous.hpp     # 阶段 3：匿名映射与 Arena
-    ├── stage4_shared_mem.hpp    # 阶段 4：进程间共享内存
-    ├── stage5_device.hpp        # 阶段 5：设备 mmap
-    ├── stage7_kernel.hpp        # 阶段 7：内核观测
-    ├── stage8_benchmark.hpp     # 阶段 8：性能基准测试
-    └── stage9_projects.hpp      # 阶段 9：综合实战
+    ├── mmap_wrapper.hpp         # RAII 封装 + Builder 模式（header-only，各阶段共用）
+    ├── stage1/                  # 阶段 1：基本用法
+    │   ├── stage1_basic.h       #   声明 + Doxygen 注释
+    │   ├── stage1_basic.cpp     #   实现
+    │   ├── stage1_basic.md      #   学习笔记（知识点讲解 + 运行输出解读 + 练习）
+    │   └── images/              #   笔记中的 SVG 图
+    ├── stage2/                  # 阶段 2：配套系统调用（结构同上）
+    ├── stage3/                  # 阶段 3：匿名映射与 Arena
+    ├── stage4/                  # 阶段 4：进程间共享内存
+    ├── stage5/                  # 阶段 5：设备 mmap
+    ├── stage7/                  # 阶段 7：内核观测
+    ├── stage8/                  # 阶段 8：性能基准测试
+    └── stage9/                  # 阶段 9：综合实战
 ```
+
+每个阶段一个文件夹：`.h` 只放声明，每个函数都带 Doxygen 注释（干什么、参数、返回值、实际应用）；`.cpp` 放实现。模板（如 `RingBuffer`、`ArenaAllocator::create`）必须留在 `.h` 中。
 
 ## 设计模式
 

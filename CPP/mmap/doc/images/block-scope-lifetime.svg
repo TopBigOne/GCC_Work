@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 530" width="960" height="530">
+  <title>块作用域与对象生命周期</title>
+  <style>
+    .t     { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #0f172a; }
+    .mono  { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 12px; fill: #0f172a; }
+    .sub   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #475569; }
+    .lbl   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #1e293b; font-weight: 600; }
+    .lane  { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 16px; font-weight: 700; fill: #0f172a; }
+    .step  { fill: #f8fafc; stroke: #cbd5e1; }
+    .barA  { fill: #dbeafe; stroke: #2563eb; stroke-width: 1.5; }
+    .barB  { fill: #dcfce7; stroke: #059669; stroke-width: 1.5; }
+    .tick  { font-family: Menlo, Consolas, monospace; font-size: 10.5px; fill: #64748b; }
+  </style>
+
+  <rect x="0.5" y="0.5" width="959" height="529" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+  <text class="t" x="480" y="36" font-size="20" font-weight="700" text-anchor="middle">同一段代码，加不加 {}：对象活多久</text>
+  <text class="sub" x="480" y="60" text-anchor="middle" style="font-size:13px">对应 stage1 的 demo_shared_vs_private；横轴是代码执行顺序，色条是 MmapRegion 对象从构造（mmap）到析构（munmap）的存活区间</text>
+
+  <!-- 步骤表头 -->
+  <rect class="step" x="202" y="84" width="116" height="50" rx="6"/>
+  <text class="lbl" x="260" y="104" text-anchor="middle">① write_file</text>
+  <text class="sub" x="260" y="123" text-anchor="middle">重置为 AAAA</text>
+  <rect class="step" x="322" y="84" width="116" height="50" rx="6"/>
+  <text class="lbl" x="380" y="104" text-anchor="middle">② Part A</text>
+  <text class="sub" x="380" y="123" text-anchor="middle">SHARED 改 BBBB</text>
+  <rect class="step" x="442" y="84" width="116" height="50" rx="6"/>
+  <text class="lbl" x="500" y="104" text-anchor="middle">③ read_file</text>
+  <text class="sub" x="500" y="123" text-anchor="middle">验证文件内容</text>
+  <rect class="step" x="562" y="84" width="116" height="50" rx="6" style="stroke:#dc2626"/>
+  <text class="lbl" x="620" y="104" text-anchor="middle">④ write_file</text>
+  <text class="sub" x="620" y="123" text-anchor="middle" style="fill:#dc2626">O_TRUNC 截断</text>
+  <rect class="step" x="682" y="84" width="116" height="50" rx="6"/>
+  <text class="lbl" x="740" y="104" text-anchor="middle">⑤ Part B</text>
+  <text class="sub" x="740" y="123" text-anchor="middle">PRIVATE 改 CCCC</text>
+  <rect class="step" x="802" y="84" width="116" height="50" rx="6"/>
+  <text class="lbl" x="860" y="104" text-anchor="middle">⑥ 函数结束</text>
+  <text class="sub" x="860" y="123" text-anchor="middle">最外层 }</text>
+
+  <!-- 列分隔线 -->
+  <g stroke="#e2e8f0" stroke-dasharray="4 4">
+    <line x1="320" y1="140" x2="320" y2="432"/>
+    <line x1="440" y1="140" x2="440" y2="432"/>
+    <line x1="560" y1="140" x2="560" y2="432"/>
+    <line x1="680" y1="140" x2="680" y2="432"/>
+    <line x1="800" y1="140" x2="800" y2="432"/>
+  </g>
+
+  <!-- ===== 有 {} ===== -->
+  <rect x="16" y="150" width="928" height="118" rx="8" fill="#f0fdf4" fill-opacity="0.5"/>
+  <text class="lane" x="30" y="190">有 { }</text>
+  <text class="sub" x="30" y="212">每段用完立刻释放</text>
+  <text class="sub" x="30" y="230">A、B 不重叠</text>
+
+  <rect class="barA" x="322" y="166" width="116" height="30" rx="5"/>
+  <text class="mono" x="380" y="186" text-anchor="middle">region (A)</text>
+  <text class="tick" x="322" y="210">mmap</text>
+  <text class="tick" x="438" y="210" text-anchor="end">munmap ← }</text>
+
+  <rect class="barB" x="682" y="216" width="116" height="30" rx="5"/>
+  <text class="mono" x="740" y="236" text-anchor="middle">region (B)</text>
+  <text class="tick" x="682" y="260">mmap</text>
+  <text class="tick" x="798" y="260" text-anchor="end">munmap ← }</text>
+
+  <!-- ===== 没有 {} ===== -->
+  <rect x="16" y="286" width="928" height="146" rx="8" fill="#fef2f2" fill-opacity="0.45"/>
+  <text class="lane" x="30" y="326">没有 { }</text>
+  <text class="sub" x="30" y="348">拖到函数结束才释放</text>
+  <text class="sub" x="30" y="366">A、B 同时存在</text>
+  <text class="sub" x="30" y="384">还必须改成不同的名字</text>
+
+  <rect class="barA" x="322" y="302" width="596" height="30" rx="5"/>
+  <text class="mono" x="380" y="322" text-anchor="middle">regionA</text>
+  <text class="tick" x="322" y="346">mmap</text>
+  <text class="tick" x="918" y="346" text-anchor="end">munmap ← 函数的 }</text>
+
+  <rect class="barB" x="682" y="356" width="236" height="30" rx="5"/>
+  <text class="mono" x="740" y="376" text-anchor="middle">regionB</text>
+  <text class="tick" x="682" y="400">mmap</text>
+  <text class="tick" x="918" y="400" text-anchor="end">munmap ← 函数的 }</text>
+
+  <!-- 危险区 -->
+  <rect x="562" y="296" width="116" height="94" rx="4" fill="#fecaca" fill-opacity="0.45" stroke="#dc2626" stroke-dasharray="5 3"/>
+  <text class="lbl" x="620" y="422" text-anchor="middle" style="fill:#dc2626">⚠ A 还映射着被截断的文件</text>
+
+  <!-- 底部结论 -->
+  <rect x="16" y="448" width="928" height="66" rx="8" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text class="sub" x="32" y="472" style="font-size:13px">规则只有一条：局部对象在离开它所在的 { } 时析构，同一个块里后构造的先析构。</text>
+  <text class="sub" x="32" y="496" style="font-size:13px">MmapRegion / FileDescriptor 是 RAII 类，析构 = munmap / close，所以 { } 的位置就决定了资源何时释放。</text>
+</svg>

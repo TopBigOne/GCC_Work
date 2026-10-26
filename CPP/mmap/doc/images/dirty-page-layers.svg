@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 746" width="960" height="746">
+  <title>从写入到磁盘：页表、page cache 与 buffer page</title>
+  <style>
+    .t     { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #0f172a; }
+    .mono  { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 12px; fill: #0f172a; }
+    .sub   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #475569; }
+    .lbl   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12.5px; fill: #1e293b; font-weight: 600; }
+    .band  { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 13px; font-weight: 700; fill: #334155; }
+    .main  { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.5; }
+    .ctrl  { fill: #ecfdf5; stroke: #059669; stroke-width: 1.5; }
+    .pg    { fill: #ffffff; stroke: #2563eb; stroke-width: 1.5; }
+    .pgd   { fill: #fff7ed; stroke: #ea580c; stroke-width: 2; }
+    .pgw   { fill: #fefce8; stroke: #ca8a04; stroke-width: 2; }
+    .a-or  { stroke: #ea580c; stroke-width: 2; fill: none; }
+    .a-g   { stroke: #059669; stroke-width: 1.5; fill: none; stroke-dasharray: 5 4; }
+  </style>
+  <defs>
+    <marker id="mo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/></marker>
+    <marker id="mg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#059669"/></marker>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="959" height="745" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+  <text class="t" x="480" y="38" font-size="21" font-weight="700" text-anchor="middle">一次写入是怎样"弄脏"一页、又怎样落到磁盘的</text>
+  <text class="sub" x="480" y="60" text-anchor="middle" style="font-size:13px">以 Linux 为例：页大小 4KB、文件系统块大小 1KB（便于看清 buffer page）</text>
+
+  <!-- ===== 用户态 ===== -->
+  <rect x="16" y="76" width="928" height="92" rx="8" fill="#f8fafc"/>
+  <text class="band" x="30" y="96">用户态</text>
+
+  <rect class="main" x="150" y="90" width="300" height="64" rx="8"/>
+  <text class="mono" x="300" y="114" text-anchor="middle">p[i] = 'D';  // mmap SHARED</text>
+  <text class="sub" x="300" y="138" text-anchor="middle">CPU 直接写 page cache 里的页，没有拷贝</text>
+
+  <rect class="main" x="510" y="90" width="300" height="64" rx="8"/>
+  <text class="mono" x="660" y="114" text-anchor="middle">write(fd, buf, n);</text>
+  <text class="sub" x="660" y="138" text-anchor="middle">内核把 buf 拷贝进 page cache 的页</text>
+
+  <!-- ===== 内核：页表 + page cache ===== -->
+  <rect x="16" y="180" width="928" height="212" rx="8" fill="#f5f9ff"/>
+  <text class="band" x="30" y="200">内核：页表 + page cache</text>
+
+  <!-- PTE -->
+  <rect class="ctrl" x="40" y="214" width="250" height="166" rx="8"/>
+  <rect x="58" y="228" width="100" height="30" fill="#ffffff" stroke="#059669"/>
+  <text class="sub" x="108" y="248" text-anchor="middle">物理页号</text>
+  <rect x="158" y="228" width="30" height="30" fill="#ffffff" stroke="#059669"/>
+  <text class="mono" x="173" y="248" text-anchor="middle">W</text>
+  <rect x="188" y="228" width="30" height="30" fill="#fed7aa" stroke="#ea580c" stroke-width="2"/>
+  <text class="mono" x="203" y="248" text-anchor="middle" style="font-weight:700">D</text>
+  <rect x="218" y="228" width="30" height="30" fill="#ffffff" stroke="#059669"/>
+  <text class="mono" x="233" y="248" text-anchor="middle">A</text>
+  <text class="lbl" x="165" y="282" text-anchor="middle">页表项 PTE（每个映射一份）</text>
+  <text class="sub" x="56" y="304">D = Dirty：CPU 写入时由硬件置位</text>
+  <text class="sub" x="56" y="323">干净的共享文件页先映射成只读，</text>
+  <text class="sub" x="56" y="342">首次写触发写保护缺页 → 内核标脏</text>
+  <text class="sub" x="56" y="361">回写前再把 D 位汇总到页上</text>
+
+  <!-- page cache -->
+  <rect class="main" x="320" y="214" width="600" height="166" rx="8"/>
+  <rect class="pg"  x="340" y="228" width="130" height="66" rx="6"/>
+  <text class="lbl" x="405" y="254" text-anchor="middle">页 #0</text>
+  <text class="sub" x="405" y="276" text-anchor="middle">干净</text>
+  <rect class="pgd" x="485" y="228" width="130" height="66" rx="6"/>
+  <text class="lbl" x="550" y="254" text-anchor="middle">页 #1</text>
+  <text class="mono" x="550" y="276" text-anchor="middle" style="fill:#ea580c;font-weight:700">PG_dirty</text>
+  <rect class="pgw" x="630" y="228" width="130" height="66" rx="6"/>
+  <text class="lbl" x="695" y="254" text-anchor="middle">页 #2</text>
+  <text class="mono" x="695" y="276" text-anchor="middle" style="fill:#a16207;font-weight:700">PG_writeback</text>
+  <rect class="pg"  x="775" y="228" width="130" height="66" rx="6"/>
+  <text class="lbl" x="840" y="254" text-anchor="middle">页 #3</text>
+  <text class="sub" x="840" y="276" text-anchor="middle">干净</text>
+  <text class="lbl" x="620" y="320" text-anchor="middle">inode → address_space：一个文件的 page cache，按「文件偏移 / 页大小」索引</text>
+  <text class="sub" x="620" y="342" text-anchor="middle">每页（folio）带状态位：PG_uptodate · PG_dirty · PG_writeback · PG_locked …</text>
+  <text class="sub" x="620" y="362" text-anchor="middle">xarray 给脏页打 tag，flusher 线程不用遍历全部页就能找到要写回的页</text>
+
+  <!-- 写入箭头 -->
+  <line class="a-g" x1="215" y1="154" x2="204" y2="224" marker-end="url(#mg)"/>
+  <line class="a-or" x1="400" y1="154" x2="538" y2="225" marker-end="url(#mo)"/>
+  <line class="a-or" x1="620" y1="154" x2="562" y2="225" marker-end="url(#mo)"/>
+
+  <!-- ===== buffer page ===== -->
+  <rect x="16" y="404" width="928" height="150" rx="8" fill="#fffbf5"/>
+  <text class="band" x="30" y="424">buffer page：把「页 #1」放大，按磁盘块再切分</text>
+
+  <rect x="40" y="438" width="240" height="104" rx="8" fill="#ffffff" stroke="#e2e8f0"/>
+  <text class="sub" x="56" y="460">页 4KB ÷ 块 1KB = 4 个块</text>
+  <text class="sub" x="56" y="480">每块一个 buffer_head：</text>
+  <text class="sub" x="56" y="500">记录磁盘块号 + 本块是否脏</text>
+  <text class="sub" x="56" y="520">回写时可以只写脏块</text>
+
+  <rect class="pg"  x="300" y="440" width="150" height="56"/>
+  <text class="lbl" x="375" y="463" text-anchor="middle">块 0</text>
+  <text class="sub" x="375" y="484" text-anchor="middle">干净</text>
+  <rect class="pgd" x="450" y="440" width="150" height="56"/>
+  <text class="lbl" x="525" y="463" text-anchor="middle">块 1</text>
+  <text class="mono" x="525" y="484" text-anchor="middle" style="fill:#ea580c;font-weight:700">BH_Dirty</text>
+  <rect class="pg"  x="600" y="440" width="150" height="56"/>
+  <text class="lbl" x="675" y="463" text-anchor="middle">块 2</text>
+  <text class="sub" x="675" y="484" text-anchor="middle">干净</text>
+  <rect class="pgd" x="750" y="440" width="150" height="56"/>
+  <text class="lbl" x="825" y="463" text-anchor="middle">块 3</text>
+  <text class="mono" x="825" y="484" text-anchor="middle" style="fill:#ea580c;font-weight:700">BH_Dirty</text>
+  <text class="sub" x="675" y="524" text-anchor="middle">page→private 指向这 4 个 buffer_head</text>
+  <text class="sub" x="675" y="542" text-anchor="middle">块 = 页大小或用 iomap 时不再挂</text>
+
+  <!-- ===== 块设备层 / 磁盘 ===== -->
+  <rect x="16" y="566" width="928" height="96" rx="8" fill="#f8fafc"/>
+  <text class="band" x="30" y="586">块设备层 / 磁盘</text>
+
+  <rect x="40" y="600" width="240" height="50" rx="8" fill="#ffffff" stroke="#94a3b8"/>
+  <text class="sub" x="160" y="621" text-anchor="middle">submit_bio → I/O 调度</text>
+  <text class="sub" x="160" y="639" text-anchor="middle">→ 驱动 → 磁盘控制器</text>
+
+  <rect x="300" y="606" width="150" height="40" fill="#ffffff" stroke="#94a3b8"/>
+  <text class="mono" x="375" y="631" text-anchor="middle">块 #8812</text>
+  <rect x="450" y="606" width="150" height="40" fill="#fff7ed" stroke="#ea580c" stroke-width="2"/>
+  <text class="mono" x="525" y="631" text-anchor="middle">块 #8813</text>
+  <rect x="600" y="606" width="150" height="40" fill="#ffffff" stroke="#94a3b8"/>
+  <text class="mono" x="675" y="631" text-anchor="middle">块 #8814</text>
+  <rect x="750" y="606" width="150" height="40" fill="#fff7ed" stroke="#ea580c" stroke-width="2"/>
+  <text class="mono" x="825" y="631" text-anchor="middle">块 #8815</text>
+
+  <line class="a-or" x1="525" y1="496" x2="525" y2="602" marker-end="url(#mo)"/>
+  <line class="a-or" x1="825" y1="496" x2="825" y2="602" marker-end="url(#mo)"/>
+  <text class="lbl" x="855" y="580" style="fill:#ea580c">只写脏块</text>
+
+  <!-- 历史说明 -->
+  <text class="lbl" x="30" y="688">buffer cache 与 page cache 的关系</text>
+  <text class="sub" x="30" y="708">Linux 2.2 及以前：buffer cache 按「设备 + 块号」缓存、page cache 按「文件 + 偏移」缓存，两套各管各的，同一份数据可能缓存两遍。</text>
+  <text class="sub" x="30" y="724" style="font-size:11.5px">2.4 起 buffer cache 改为建在 page cache 之上：块缓冲就是挂在 page cache 页上的 buffer_head。free 命令里的 buff/cache 合计的就是这两类页。</text>
+</svg>

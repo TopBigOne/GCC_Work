@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 810" width="960" height="810">
+  <title>read() 与 mmap 的数据路径对比</title>
+  <style>
+    .t      { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #0f172a; }
+    .mono   { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; fill: #0f172a; font-size: 14px; }
+    .sub    { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #475569; }
+    .band   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #64748b; font-weight: 600; }
+    .lbl    { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; font-weight: 600; }
+    .body   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 13px; fill: #334155; }
+    .main   { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.5; }
+    .ctrl   { fill: #ecfdf5; stroke: #059669; stroke-width: 1.5; }
+    .persist{ fill: #fff7ed; stroke: #ea580c; stroke-width: 1.5; }
+    .errbox { fill: #fef2f2; stroke: #dc2626; stroke-width: 1.5; }
+    .disk   { fill: #f5f5f4; stroke: #78716c; stroke-width: 1.2; }
+    .flow   { stroke: #2563eb; stroke-width: 2; fill: none; }
+    .copy   { stroke: #ea580c; stroke-width: 2.5; fill: none; }
+    .zero   { stroke: #059669; stroke-width: 2.5; fill: none; }
+    .fault  { stroke: #dc2626; stroke-width: 1.5; fill: none; stroke-dasharray: 6 4; }
+    .skip   { stroke: #64748b; stroke-width: 1.5; fill: none; stroke-dasharray: 6 4; }
+    .gray   { stroke: #64748b; stroke-width: 1.5; fill: none; }
+  </style>
+  <defs>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#059669"/></marker>
+    <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/></marker>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#dc2626"/></marker>
+    <marker id="ax" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#64748b"/></marker>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="959" height="809" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+
+  <text class="t" x="480" y="38" font-size="22" font-weight="700" text-anchor="middle">read() 与 mmap：数据怎么到达你的代码</text>
+  <text class="sub" x="480" y="62" text-anchor="middle" style="font-size:13px">两条路径读到的是同一份 page cache；区别在于"要不要进内核、要不要再拷贝一次"</text>
+
+  <!-- 分层背景 -->
+  <rect x="20" y="108" width="920" height="122" rx="6" fill="#f8fafc"/>
+  <rect x="20" y="250" width="920" height="140" rx="6" fill="#f1f5f9"/>
+  <rect x="20" y="410" width="920" height="54" rx="6" fill="#fafaf9"/>
+  <text class="band" x="930" y="126" text-anchor="end">用户空间</text>
+  <text class="band" x="930" y="268" text-anchor="end">内核空间</text>
+  <text class="band" x="930" y="442" text-anchor="end">磁盘</text>
+  <line x1="480" y1="84" x2="480" y2="464" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="4 4"/>
+
+  <text class="t" x="250" y="98" font-size="16" font-weight="700" text-anchor="middle" fill="#2563eb">read() 路径</text>
+  <text class="t" x="715" y="98" font-size="16" font-weight="700" text-anchor="middle" fill="#2563eb">mmap 路径</text>
+
+  <!-- ===== 左：read() ===== -->
+  <rect class="main" x="50" y="140" width="170" height="60" rx="8"/>
+  <text class="mono" x="135" y="166" text-anchor="middle">buf[64KB]</text>
+  <text class="sub" x="135" y="186" text-anchor="middle">用户态缓冲区（第二份数据）</text>
+
+  <rect class="main" x="270" y="140" width="180" height="60" rx="8"/>
+  <text class="mono" x="360" y="166" text-anchor="middle">sum += buf[i]</text>
+  <text class="sub" x="360" y="186" text-anchor="middle">你的代码</text>
+  <line class="flow" x1="220" y1="170" x2="267" y2="170" marker-end="url(#ab)"/>
+
+  <rect class="main" x="50" y="290" width="170" height="70" rx="8"/>
+  <text class="mono" x="135" y="318" text-anchor="middle">page cache</text>
+  <text class="sub" x="135" y="340" text-anchor="middle">文件内容在内核里的缓存</text>
+
+  <rect class="main" x="270" y="290" width="180" height="70" rx="8"/>
+  <text class="mono" x="360" y="318" text-anchor="middle">read() / lseek()</text>
+  <text class="sub" x="360" y="340" text-anchor="middle">系统调用：陷入内核</text>
+
+  <line class="flow" x1="360" y1="200" x2="360" y2="287" marker-end="url(#ab)"/>
+  <text class="lbl" x="368" y="246" fill="#2563eb">① 每次都进内核</text>
+  <line class="gray" x1="270" y1="325" x2="223" y2="325" marker-end="url(#ax)"/>
+  <text class="sub" x="246" y="316" text-anchor="middle">找页</text>
+  <line class="copy" x1="135" y1="290" x2="135" y2="203" marker-end="url(#ao)"/>
+  <text class="lbl" x="143" y="246" fill="#ea580c">② CPU 拷贝到 buf</text>
+
+  <rect class="disk" x="50" y="420" width="170" height="34" rx="6"/>
+  <text class="sub" x="135" y="442" text-anchor="middle">文件数据块</text>
+  <line class="skip" x1="135" y1="420" x2="135" y2="363" marker-end="url(#ax)"/>
+  <text class="sub" x="143" y="402">冷缓存时才读盘</text>
+
+  <!-- ===== 右：mmap ===== -->
+  <rect class="main" x="515" y="140" width="180" height="60" rx="8"/>
+  <text class="mono" x="605" y="166" text-anchor="middle">sum += addr[i]</text>
+  <text class="sub" x="605" y="186" text-anchor="middle">像访问数组一样读文件</text>
+
+  <rect class="ctrl" x="745" y="140" width="170" height="60" rx="8"/>
+  <text class="mono" x="830" y="166" text-anchor="middle">TLB / 页表</text>
+  <text class="sub" x="830" y="186" text-anchor="middle">虚拟地址 → 物理页（硬件）</text>
+  <line class="flow" x1="695" y1="170" x2="742" y2="170" marker-end="url(#ab)"/>
+
+  <rect class="ctrl" x="515" y="290" width="180" height="70" rx="8"/>
+  <text class="mono" x="605" y="318" text-anchor="middle">page cache</text>
+  <text class="sub" x="605" y="340" text-anchor="middle">同一批物理页，只有一份</text>
+
+  <rect class="errbox" x="745" y="290" width="170" height="70" rx="8"/>
+  <text class="mono" x="830" y="318" text-anchor="middle">缺页处理</text>
+  <text class="sub" x="830" y="340" text-anchor="middle">把页填进页表（PTE）</text>
+
+  <line class="zero" x1="605" y1="203" x2="605" y2="287" marker-start="url(#ag)" marker-end="url(#ag)"/>
+  <text class="lbl" x="613" y="240" fill="#059669">③ 直接访问，零拷贝</text>
+  <line class="fault" x1="830" y1="200" x2="830" y2="287" marker-end="url(#ar)"/>
+  <text class="lbl" x="822" y="268" fill="#dc2626" text-anchor="end">每页首次访问：缺页</text>
+  <line class="gray" x1="745" y1="325" x2="698" y2="325" marker-end="url(#ax)"/>
+  <text class="sub" x="721" y="316" text-anchor="middle">建映射</text>
+
+  <rect class="disk" x="515" y="420" width="180" height="34" rx="6"/>
+  <text class="sub" x="605" y="442" text-anchor="middle">文件数据块</text>
+  <line class="skip" x1="605" y1="420" x2="605" y2="363" marker-end="url(#ax)"/>
+  <text class="sub" x="613" y="402">冷缓存时才读盘</text>
+
+  <!-- ===== 成本对比 ===== -->
+  <rect class="persist" x="30" y="490" width="435" height="172" rx="10"/>
+  <text class="t" x="50" y="518" font-size="15" font-weight="700">read() 每次都要付的成本</text>
+  <text class="body" x="50" y="546">• 每次调用 = 一次用户态 ↔ 内核态切换</text>
+  <text class="body" x="50" y="572">• 数据多拷贝一次：page cache → buf</text>
+  <text class="body" x="50" y="598">• 随机读 4 字节：lseek + read = 2 次系统调用</text>
+  <text class="body" x="50" y="624">• 大块顺序读时，这些成本被 64KB 摊薄</text>
+  <text class="body" x="50" y="650">• 本机实测随机读：约 <tspan font-weight="700" fill="#ea580c">1.3 µs / 次</tspan></text>
+
+  <rect class="ctrl" x="495" y="490" width="435" height="172" rx="10"/>
+  <text class="t" x="515" y="518" font-size="15" font-weight="700">mmap 的成本集中在</text>
+  <text class="body" x="515" y="546">• mmap / munmap 建立、拆除映射（一次性）</text>
+  <text class="body" x="515" y="572">• 每页第一次访问触发缺页（本机页大小 16 KB）</text>
+  <text class="body" x="515" y="598">• 映射越大，TLB 越容易 miss，需要查页表</text>
+  <text class="body" x="515" y="624">• 热缓存下，之后的访问就是普通内存读</text>
+  <text class="body" x="515" y="650">• 本机实测随机读：约 <tspan font-weight="700" fill="#059669">6 ns / 次</tspan></text>
+
+  <!-- ===== 结论 ===== -->
+  <rect x="30" y="682" width="900" height="70" rx="10" fill="#f8fafc" stroke="#94a3b8"/>
+  <text class="body" x="50" y="710"><tspan font-weight="700">顺序读大块</tspan>：两边都受内存带宽限制，read() 的开销被 64KB 摊薄 → 差距不大（本机 1.0~1.4 GB/s 互有胜负）</text>
+  <text class="body" x="50" y="736"><tspan font-weight="700">随机读小块</tspan>：read() 被系统调用次数主导，mmap 快 200 倍以上（本机 2.9 MB/s vs 672 MB/s）</text>
+
+  <!-- 图例 -->
+  <g transform="translate(40, 782)">
+    <line class="flow" x1="0" y1="-4" x2="28" y2="-4" marker-end="url(#ab)"/>
+    <text class="sub" x="36" y="0">访问 / 调用</text>
+    <line class="copy" x1="120" y1="-4" x2="148" y2="-4" marker-end="url(#ao)"/>
+    <text class="sub" x="156" y="0">数据拷贝</text>
+    <line class="zero" x1="230" y1="-4" x2="258" y2="-4" marker-end="url(#ag)"/>
+    <text class="sub" x="266" y="0">零拷贝直接映射</text>
+    <line class="fault" x1="370" y1="-4" x2="398" y2="-4" marker-end="url(#ar)"/>
+    <text class="sub" x="406" y="0">缺页中断</text>
+    <line class="skip" x1="480" y1="-4" x2="508" y2="-4" marker-end="url(#ax)"/>
+    <text class="sub" x="516" y="0">只在冷缓存（数据不在内存）时发生</text>
+  </g>
+</svg>

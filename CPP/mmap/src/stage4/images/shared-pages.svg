@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 800" width="960" height="800">
+  <title>共享内存的原理</title>
+  <style>
+    .t      { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #0f172a; }
+    .mono   { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; fill: #0f172a; font-size: 12px; }
+    .sub    { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #475569; }
+    .head   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 14px; font-weight: 600; fill: #334155; }
+    .err    { fill: #dc2626; font-weight: 600; }
+    .main   { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.5; }
+    .ctrl   { fill: #ecfdf5; stroke: #059669; stroke-width: 1.5; }
+    .persist{ fill: #fff7ed; stroke: #ea580c; stroke-width: 1.5; }
+    .plain  { fill: #ffffff; stroke: #94a3b8; stroke-width: 1.2; }
+    .ram    { fill: #f1f5f9; stroke: #cbd5e1; stroke-width: 1; }
+    .proc   { fill: #f8fafc; stroke: #94a3b8; stroke-width: 1.2; }
+    .flow   { stroke: #2563eb; stroke-width: 2; fill: none; }
+    .flowg  { stroke: #059669; stroke-width: 1.8; fill: none; }
+  </style>
+  <defs>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#059669"/>
+    </marker>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="959" height="799" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+
+  <text class="t" x="480" y="40" font-size="22" font-weight="700" text-anchor="middle">共享内存：两个进程的页表指向同一组物理页</text>
+  <text class="sub" x="480" y="64" text-anchor="middle" style="font-size:13px">一方写入的数据，另一方直接就能读到——没有 read/write，也没有拷贝</text>
+
+  <!-- ===== 进程 A ===== -->
+  <rect class="proc" x="40" y="92" width="250" height="296" rx="10"/>
+  <text class="head" x="165" y="118" text-anchor="middle">父进程</text>
+  <text class="sub" x="165" y="136" text-anchor="middle">（创建者 / 消费者）</text>
+  <rect class="main" x="60" y="152" width="210" height="62" rx="8"/>
+  <text class="mono" x="165" y="178" text-anchor="middle">buf = 0x1040a8000</text>
+  <text class="sub" x="165" y="199" text-anchor="middle">虚拟地址（MAP_SHARED）</text>
+  <line class="flow" x1="165" y1="214" x2="165" y2="250" marker-end="url(#ab)"/>
+  <rect class="plain" x="60" y="254" width="210" height="62" rx="8"/>
+  <text class="t" x="165" y="279" text-anchor="middle" style="font-size:13px">页表 A</text>
+  <text class="sub" x="165" y="300" text-anchor="middle">这个虚拟页 → 物理页 #1234</text>
+  <text class="sub" x="165" y="350" text-anchor="middle">MMU 按页表把地址翻译成</text>
+  <text class="sub" x="165" y="368" text-anchor="middle">物理地址，进程自己看不到</text>
+
+  <!-- ===== 进程 B ===== -->
+  <rect class="proc" x="670" y="92" width="250" height="296" rx="10"/>
+  <text class="head" x="795" y="118" text-anchor="middle">子进程 / 另一个进程</text>
+  <text class="sub" x="795" y="136" text-anchor="middle">（生产者）</text>
+  <rect class="main" x="690" y="152" width="210" height="62" rx="8"/>
+  <text class="mono" x="795" y="178" text-anchor="middle">buf = 0x1080c4000</text>
+  <text class="sub" x="795" y="199" text-anchor="middle">独立进程里地址可能不同！</text>
+  <line class="flow" x1="795" y1="214" x2="795" y2="250" marker-end="url(#ab)"/>
+  <rect class="plain" x="690" y="254" width="210" height="62" rx="8"/>
+  <text class="t" x="795" y="279" text-anchor="middle" style="font-size:13px">页表 B</text>
+  <text class="sub" x="795" y="300" text-anchor="middle">这个虚拟页 → 物理页 #1234</text>
+  <text class="sub" x="795" y="350" text-anchor="middle">写入：memcpy(buf, "Hello…")</text>
+  <text class="sub" x="795" y="368" text-anchor="middle">不需要任何系统调用</text>
+
+  <!-- ===== 物理内存 ===== -->
+  <rect class="proc" x="380" y="92" width="200" height="296" rx="10" style="fill:#ffffff"/>
+  <text class="head" x="480" y="118" text-anchor="middle">物理内存（RAM）</text>
+  <rect class="ram" x="410" y="140" width="140" height="30" rx="4"/>
+  <text class="sub" x="480" y="160" text-anchor="middle">其他页</text>
+  <rect class="ram" x="410" y="178" width="140" height="30" rx="4"/>
+  <text class="sub" x="480" y="198" text-anchor="middle">其他页</text>
+  <rect class="main" x="402" y="240" width="156" height="72" rx="8" style="stroke-width:2.5"/>
+  <text class="t" x="480" y="266" text-anchor="middle" style="font-size:14px; font-weight:700">物理页 #1234</text>
+  <text class="mono" x="480" y="290" text-anchor="middle" style="font-size:11px">"Hello from child"</text>
+  <rect class="ram" x="410" y="334" width="140" height="30" rx="4"/>
+  <text class="sub" x="480" y="354" text-anchor="middle">其他页</text>
+
+  <line class="flow" x1="270" y1="285" x2="398" y2="276" marker-end="url(#ab)"/>
+  <line class="flow" x1="690" y1="285" x2="562" y2="276" marker-end="url(#ab)"/>
+
+  <text class="sub" x="480" y="414" text-anchor="middle" style="font-size:12.5px"><tspan class="err">注意：</tspan>两边的 buf 地址可以不同，但最后落在同一物理页 → 共享内存里只能存"偏移 / 下标"，<tspan class="err">不能存指针</tspan></text>
+
+  <!-- ===== MAP_PRIVATE 对比 ===== -->
+  <rect class="persist" x="40" y="434" width="880" height="84" rx="8"/>
+  <text class="head" x="60" y="458">对比 MAP_PRIVATE（写时复制）</text>
+  <text class="sub" x="60" y="482">子进程第一次写 → 缺页 → 内核复制出一个私有页 #5678 并让页表 B 指向它；页表 A 仍指向 #1234 → 父进程读不到修改</text>
+  <text class="sub" x="60" y="504">所以进程间通信必须用 MAP_SHARED；MAP_PRIVATE 适合"读文件、自己改改但不想影响别人"</text>
+
+  <!-- ===== 两种建立方式 ===== -->
+  <rect class="ctrl" x="40" y="540" width="430" height="196" rx="10"/>
+  <text class="head" x="60" y="566">方式 A：fork 继承匿名共享映射</text>
+  <text class="mono" x="60" y="596" xml:space="preserve">buf = mmap(NULL, 4096, RW,</text>
+  <text class="mono" x="60" y="614" xml:space="preserve">           MAP_SHARED|MAP_ANON, -1, 0);</text>
+  <text class="mono" x="60" y="632" xml:space="preserve">pid = fork();   // 子进程继承同一映射</text>
+  <text class="sub" x="60" y="664">✓ 简单：不需要名字，也不需要文件</text>
+  <text class="sub" x="60" y="684">✗ 只适用于有亲缘关系（fork 出来）的进程</text>
+  <text class="sub" x="60" y="716">代码：Stage4SharedMem::demo_fork_shared</text>
+
+  <rect class="ctrl" x="490" y="540" width="430" height="196" rx="10"/>
+  <text class="head" x="510" y="566">方式 B：shm_open 按名字共享</text>
+  <text class="mono" x="510" y="596" xml:space="preserve">fd = shm_open("/mmap_learn_stage4",</text>
+  <text class="mono" x="510" y="614" xml:space="preserve">              O_CREAT|O_RDWR, 0666);</text>
+  <text class="mono" x="510" y="632" xml:space="preserve">ftruncate(fd, 4096);  // 新对象大小为 0</text>
+  <text class="mono" x="510" y="650" xml:space="preserve">mmap(..., MAP_SHARED, fd, 0); close(fd);</text>
+  <text class="sub" x="510" y="676">✓ 任意进程用同一个名字打开（Linux：/dev/shm/名字）</text>
+  <text class="sub" x="510" y="696">✗ 用完要 shm_unlink 删名字；已映射的进程不受影响</text>
+  <text class="sub" x="510" y="720">代码：SharedMemory 类 · demo_shm_open</text>
+
+  <!-- 图例 -->
+  <g transform="translate(40, 772)">
+    <rect class="main" x="0" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="24" y="1">共享的映射 / 物理页</text>
+    <rect class="plain" x="170" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="194" y="1">每个进程私有的页表</text>
+    <rect class="persist" x="340" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="364" y="1">写时复制（不共享）</text>
+    <rect class="ctrl" x="510" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="534" y="1">建立共享的两种方式</text>
+    <text class="sub" x="680" y="1"><tspan class="err">红字</tspan> = 容易踩的坑</text>
+  </g>
+</svg>

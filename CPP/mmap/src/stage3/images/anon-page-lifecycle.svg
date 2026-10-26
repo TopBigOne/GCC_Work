@@ -1,0 +1,154 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 800" width="960" height="800">
+  <title>匿名映射的一生</title>
+  <style>
+    .t      { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #0f172a; }
+    .mono   { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; fill: #0f172a; font-size: 12px; }
+    .sub    { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #475569; }
+    .head   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 14px; font-weight: 600; fill: #334155; }
+    .step   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 14px; font-weight: 700; fill: #1e3a8a; }
+    .err    { fill: #dc2626; font-weight: 600; }
+    .main   { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.5; }
+    .ctrl   { fill: #ecfdf5; stroke: #059669; stroke-width: 1.5; }
+    .persist{ fill: #fff7ed; stroke: #ea580c; stroke-width: 1.5; }
+    .empty  { fill: #ffffff; stroke: #94a3b8; stroke-width: 1.2; stroke-dasharray: 5 4; }
+    .flow   { stroke: #2563eb; stroke-width: 1.8; fill: none; }
+    .gray   { stroke: #94a3b8; stroke-width: 1.5; fill: none; }
+  </style>
+  <defs>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+    <marker id="ax" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="959" height="799" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+
+  <text class="t" x="480" y="40" font-size="22" font-weight="700" text-anchor="middle">匿名映射的一生：虚拟地址 → 页表 → 物理页</text>
+  <text class="sub" x="480" y="64" text-anchor="middle" style="font-size:13px">mmap 只分配"虚拟地址"；物理内存要等第一次写入时才按页分配（按需分页）</text>
+
+  <!-- 列标题 -->
+  <text class="head" x="170" y="104" text-anchor="middle">代码 / 操作</text>
+  <text class="head" x="415" y="104" text-anchor="middle">VMA（地址区间）</text>
+  <text class="head" x="610" y="104" text-anchor="middle">页表项 PTE</text>
+  <text class="head" x="820" y="104" text-anchor="middle">物理内存</text>
+
+  <!-- 时间轴 -->
+  <line x1="22" y1="125" x2="22" y2="615" stroke="#cbd5e1" stroke-width="2" marker-end="url(#ax)"/>
+  <text class="sub" x="14" y="640" style="font-size:11px">时间</text>
+
+  <!-- ===== 行 1：mmap ===== -->
+  <rect class="main" x="40" y="120" width="260" height="110" rx="8"/>
+  <text class="step" x="56" y="146">① 建立映射</text>
+  <text class="mono" x="56" y="170">mmap(NULL, 4096, RW,</text>
+  <text class="mono" x="56" y="186">  MAP_PRIVATE|MAP_ANON, -1, 0)</text>
+  <text class="sub" x="56" y="214">内核只登记一段地址区间</text>
+
+  <rect class="main" x="330" y="120" width="170" height="110" rx="8"/>
+  <text class="mono" x="415" y="162" text-anchor="middle">rw-p 匿名 4KB</text>
+  <text class="sub" x="415" y="186" text-anchor="middle">VMA 已建立</text>
+  <text class="sub" x="415" y="204" text-anchor="middle">地址可以访问了</text>
+
+  <rect class="empty" x="530" y="120" width="160" height="110" rx="8"/>
+  <text class="t" x="610" y="170" text-anchor="middle" style="font-size:13px">（空）</text>
+  <text class="sub" x="610" y="192" text-anchor="middle">还没有任何映射</text>
+
+  <rect class="empty" x="720" y="120" width="200" height="110" rx="8"/>
+  <text class="t" x="820" y="170" text-anchor="middle" style="font-size:13px">未分配物理页</text>
+  <text class="sub" x="820" y="192" text-anchor="middle">RSS 不变</text>
+
+  <line class="flow" x1="300" y1="175" x2="326" y2="175" marker-end="url(#ab)"/>
+  <line class="gray" x1="500" y1="175" x2="526" y2="175" marker-end="url(#ax)"/>
+  <line class="gray" x1="690" y1="175" x2="716" y2="175" marker-end="url(#ax)"/>
+
+  <!-- ===== 行 2：第一次读 ===== -->
+  <rect class="main" x="40" y="250" width="260" height="110" rx="8"/>
+  <text class="step" x="56" y="276">② 第一次读</text>
+  <text class="mono" x="56" y="300">if (bytes[i] != 0) ...</text>
+  <text class="sub" x="56" y="326">demo 逐字节检查是否全 0</text>
+  <text class="sub" x="56" y="344">→ 输出 zero-initialized: YES</text>
+
+  <rect class="main" x="330" y="250" width="170" height="110" rx="8"/>
+  <text class="t" x="415" y="300" text-anchor="middle" style="font-size:13px">不变</text>
+
+  <rect class="ctrl" x="530" y="250" width="160" height="110" rx="8"/>
+  <text class="sub" x="610" y="280" text-anchor="middle"><tspan class="err">缺页（读）</tspan></text>
+  <text class="t" x="610" y="304" text-anchor="middle" style="font-size:13px">→ 零页（只读）</text>
+  <text class="sub" x="610" y="326" text-anchor="middle">不分配新内存</text>
+
+  <rect class="ctrl" x="720" y="250" width="200" height="110" rx="8"/>
+  <text class="t" x="820" y="282" text-anchor="middle" style="font-size:13px">全 0 的"零页"</text>
+  <text class="sub" x="820" y="306" text-anchor="middle">Linux：全系统共用这一页</text>
+  <text class="sub" x="820" y="326" text-anchor="middle">macOS：按需分配清零页</text>
+  <text class="sub" x="820" y="346" text-anchor="middle">RSS 几乎不变</text>
+
+  <line class="flow" x1="300" y1="305" x2="326" y2="305" marker-end="url(#ab)"/>
+  <line class="flow" x1="500" y1="305" x2="526" y2="305" marker-end="url(#ab)"/>
+  <line class="flow" x1="690" y1="305" x2="716" y2="305" marker-end="url(#ab)"/>
+
+  <!-- ===== 行 3：第一次写 ===== -->
+  <rect class="main" x="40" y="380" width="260" height="110" rx="8"/>
+  <text class="step" x="56" y="406">③ 第一次写</text>
+  <text class="mono" x="56" y="430">memcpy(data(), msg, n)</text>
+  <text class="sub" x="56" y="456">写字符串、intPtr[i] = ...</text>
+  <text class="sub" x="56" y="474">都落在这同一页里</text>
+
+  <rect class="main" x="330" y="380" width="170" height="110" rx="8"/>
+  <text class="t" x="415" y="430" text-anchor="middle" style="font-size:13px">不变</text>
+
+  <rect class="persist" x="530" y="380" width="160" height="110" rx="8"/>
+  <text class="sub" x="610" y="410" text-anchor="middle"><tspan class="err">缺页（写）</tspan></text>
+  <text class="t" x="610" y="434" text-anchor="middle" style="font-size:13px">→ 新物理页（可写）</text>
+  <text class="sub" x="610" y="456" text-anchor="middle">离开零页 = 写时复制</text>
+
+  <rect class="persist" x="720" y="380" width="200" height="110" rx="8"/>
+  <text class="t" x="820" y="414" text-anchor="middle" style="font-size:13px">分配 1 页并清零</text>
+  <text class="sub" x="820" y="436" text-anchor="middle">然后写入你的数据</text>
+  <text class="t" x="820" y="464" text-anchor="middle" style="font-size:15px; font-weight:700; fill:#ea580c">RSS +4KB</text>
+
+  <line class="flow" x1="300" y1="435" x2="326" y2="435" marker-end="url(#ab)"/>
+  <line class="flow" x1="500" y1="435" x2="526" y2="435" marker-end="url(#ab)"/>
+  <line class="flow" x1="690" y1="435" x2="716" y2="435" marker-end="url(#ab)"/>
+
+  <!-- ===== 行 4：munmap ===== -->
+  <rect class="main" x="40" y="510" width="260" height="110" rx="8"/>
+  <text class="step" x="56" y="536">④ 解除映射</text>
+  <text class="mono" x="56" y="560">munmap(addr, 4096)</text>
+  <text class="sub" x="56" y="586">MmapRegion 析构时自动调用</text>
+  <text class="sub" x="56" y="604">（RAII，离开作用域即释放）</text>
+
+  <rect class="empty" x="330" y="510" width="170" height="110" rx="8"/>
+  <text class="t" x="415" y="556" text-anchor="middle" style="font-size:13px">删除</text>
+  <text class="sub" x="415" y="580" text-anchor="middle">再访问 → <tspan class="err">SIGSEGV</tspan></text>
+
+  <rect class="empty" x="530" y="510" width="160" height="110" rx="8"/>
+  <text class="t" x="610" y="560" text-anchor="middle" style="font-size:13px">清除</text>
+
+  <rect class="empty" x="720" y="510" width="200" height="110" rx="8"/>
+  <text class="t" x="820" y="556" text-anchor="middle" style="font-size:13px">页归还给系统</text>
+  <text class="t" x="820" y="582" text-anchor="middle" style="font-size:15px; font-weight:700; fill:#64748b">RSS −4KB</text>
+
+  <line class="flow" x1="300" y1="565" x2="326" y2="565" marker-end="url(#ab)"/>
+  <line class="gray" x1="500" y1="565" x2="526" y2="565" marker-end="url(#ax)"/>
+  <line class="gray" x1="690" y1="565" x2="716" y2="565" marker-end="url(#ax)"/>
+
+  <!-- 观察方法 -->
+  <rect x="40" y="652" width="880" height="86" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text class="head" x="56" y="676">怎么亲眼看到"映射了但没占内存"？</text>
+  <text class="sub" x="56" y="700">macOS：本 stage 用 vmmap 查 64KB 探测映射，输出 <tspan class="mono" style="font-size:11.5px">[ 64K  0K  0K  0K ]</tspan> = 虚拟 64K，常驻 0K（从没写过）</text>
+  <text class="sub" x="56" y="722">Linux：看 /proc/self/smaps 中这段映射的 Size（虚拟大小）和 Rss（实际占用物理内存）</text>
+
+  <!-- 图例 -->
+  <g transform="translate(40, 770)">
+    <rect class="main" x="0" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="24" y="1">进程发起的操作 / 已建立</text>
+    <rect class="ctrl" x="200" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="224" y="1">只读共享零页</text>
+    <rect class="persist" x="340" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="364" y="1">真正分配物理内存</text>
+    <rect class="empty" x="500" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="524" y="1">不存在 / 已释放</text>
+    <text class="sub" x="650" y="1"><tspan class="err">红字</tspan> = 缺页异常或错误信号</text>
+  </g>
+</svg>

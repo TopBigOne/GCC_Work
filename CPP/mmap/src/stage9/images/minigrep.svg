@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 500" width="960" height="500">
+  <title>MiniGrep：用 mmap 零拷贝扫描文件</title>
+  <style>
+    .t      { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #0f172a; }
+    .mono   { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; fill: #0f172a; font-size: 13px; }
+    .monos  { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; fill: #1e293b; font-size: 11px; }
+    .sub    { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #475569; }
+    .body   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 13px; fill: #334155; }
+    .lbl    { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; font-weight: 600; }
+    .main   { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.5; }
+    .ctrl   { fill: #ecfdf5; stroke: #059669; stroke-width: 1.5; }
+    .persist{ fill: #fff7ed; stroke: #ea580c; stroke-width: 1.5; }
+    .idle   { fill: #f8fafc; stroke: #94a3b8; stroke-width: 1.2; }
+    .flow   { stroke: #2563eb; stroke-width: 2; fill: none; }
+    .copy   { stroke: #ea580c; stroke-width: 2; fill: none; }
+    .gray   { stroke: #64748b; stroke-width: 1.5; fill: none; }
+    .view   { stroke: #059669; stroke-width: 2; fill: none; }
+  </style>
+  <defs>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker>
+    <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/></marker>
+    <marker id="ax" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#64748b"/></marker>
+    <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="#cbd5e1" stroke-width="2"/></pattern>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="959" height="499" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+
+  <text class="t" x="480" y="38" font-size="22" font-weight="700" text-anchor="middle">MiniGrep：把文件当成一个大字符串来搜</text>
+  <text class="sub" x="480" y="62" text-anchor="middle" style="font-size:13px">只读映射 + 顺序访问提示 + string_view 切行：整个扫描过程不拷贝数据，只有命中的行才拷贝一次</text>
+
+  <!-- 流程 -->
+  <rect class="main" x="35" y="90" width="200" height="62" rx="8"/>
+  <text class="mono" x="135" y="116" text-anchor="middle">open + fstat</text>
+  <text class="sub" x="135" y="138" text-anchor="middle">空文件直接返回</text>
+
+  <rect class="main" x="265" y="90" width="200" height="62" rx="8"/>
+  <text class="mono" x="365" y="116" text-anchor="middle">mmap 只读 + PRIVATE</text>
+  <text class="sub" x="365" y="138" text-anchor="middle">整个文件变成一段连续内存</text>
+
+  <rect class="ctrl" x="495" y="90" width="200" height="62" rx="8"/>
+  <text class="mono" x="595" y="116" text-anchor="middle">MADV_SEQUENTIAL</text>
+  <text class="sub" x="595" y="138" text-anchor="middle">内核加大预读，读过的页早回收</text>
+
+  <rect class="main" x="725" y="90" width="200" height="62" rx="8"/>
+  <text class="mono" x="825" y="116" text-anchor="middle">逐行扫描</text>
+  <text class="sub" x="825" y="138" text-anchor="middle">找 '\n' → 切出一行 → find</text>
+
+  <line class="flow" x1="235" y1="121" x2="262" y2="121" marker-end="url(#ab)"/>
+  <line class="flow" x1="465" y1="121" x2="492" y2="121" marker-end="url(#ab)"/>
+  <line class="flow" x1="695" y1="121" x2="722" y2="121" marker-end="url(#ab)"/>
+
+  <!-- 映射区 -->
+  <text class="lbl" x="60" y="196" fill="#2563eb">映射区 data[0 .. len)：文件内容原样躺在内存里，'\n' 就是行与行的分界</text>
+  <rect class="idle" x="60" y="208" width="200" height="40"/>
+  <rect class="ctrl" x="260" y="208" width="210" height="40"/>
+  <rect class="idle" x="470" y="208" width="190" height="40"/>
+  <rect class="idle" x="660" y="208" width="170" height="40"/>
+  <rect x="830" y="208" width="70" height="40" fill="url(#hatch)" stroke="#94a3b8"/>
+  <text class="monos" x="68" y="233">The quick brown fox…\n</text>
+  <text class="monos" x="268" y="233">The fox was not really…\n</text>
+  <text class="monos" x="478" y="233">mmap provides zero…\n</text>
+  <text class="monos" x="668" y="233">Memory-mapped I/O…\n</text>
+  <text class="monos" x="842" y="233">……</text>
+
+  <!-- string_view 窗口 -->
+  <line x1="260" y1="256" x2="260" y2="272" stroke="#059669" stroke-width="2"/>
+  <line x1="460" y1="256" x2="460" y2="272" stroke="#059669" stroke-width="2"/>
+  <line class="view" x1="260" y1="264" x2="460" y2="264"/>
+  <text class="lbl" x="260" y="290" fill="#059669" text-anchor="middle">pos</text>
+  <text class="lbl" x="460" y="290" fill="#059669" text-anchor="middle">eol</text>
+  <text class="mono" x="560" y="278" style="font-size:12px" fill="#059669">string_view(data + pos, eol - pos)</text>
+  <text class="sub" x="560" y="296">只记"指针 + 长度"，不复制这一行</text>
+
+  <!-- 两种结果 -->
+  <line class="gray" x1="330" y1="300" x2="230" y2="342" marker-end="url(#ax)"/>
+  <line class="gray" x1="390" y1="300" x2="560" y2="342" marker-end="url(#ax)"/>
+
+  <rect class="persist" x="40" y="346" width="400" height="66" rx="8"/>
+  <text class="body" x="58" y="372"><tspan font-weight="700">命中</tspan>（这一行含 "fox"）</text>
+  <text class="body" x="58" y="396">→ <tspan class="mono" style="font-size:12px">std::string(line_view)</tspan> 拷贝进 results</text>
+
+  <rect class="idle" x="480" y="346" width="440" height="66" rx="8"/>
+  <text class="body" x="498" y="372"><tspan font-weight="700">未命中</tspan>（绝大多数行）</text>
+  <text class="body" x="498" y="396">→ 什么都不做，pos = eol + 1 继续下一行，<tspan font-weight="700" fill="#059669">零拷贝</tspan></text>
+
+  <!-- 注意 -->
+  <rect x="40" y="428" width="880" height="34" rx="8" fill="#fef2f2" stroke="#fecaca"/>
+  <text class="body" x="58" y="450">⚠ 只读 + PRIVATE：代码写错也改不了文件。但扫描期间文件若被别的进程截断，访问被截掉的页会收到 <tspan font-weight="700" fill="#dc2626">SIGBUS</tspan></text>
+
+  <g transform="translate(40, 486)">
+    <rect class="main" x="0" y="-12" width="16" height="16" rx="3"/><text class="sub" x="24" y="1">主流程</text>
+    <rect class="ctrl" x="100" y="-12" width="16" height="16" rx="3"/><text class="sub" x="124" y="1">访问提示 / 当前视图</text>
+    <rect class="persist" x="270" y="-12" width="16" height="16" rx="3"/><text class="sub" x="294" y="1">唯一发生拷贝的地方</text>
+  </g>
+</svg>

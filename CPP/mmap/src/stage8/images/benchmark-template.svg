@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" width="960" height="520">
+  <title>Benchmark 模板方法</title>
+  <style>
+    .t      { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #0f172a; }
+    .mono   { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; fill: #0f172a; font-size: 13px; }
+    .monos  { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; fill: #334155; font-size: 11.5px; }
+    .sub    { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #475569; }
+    .body   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12.5px; fill: #334155; }
+    .key    { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 11.5px; font-weight: 700; }
+    .main   { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.5; }
+    .ctrl   { fill: #ecfdf5; stroke: #059669; stroke-width: 1.5; }
+    .persist{ fill: #fff7ed; stroke: #ea580c; stroke-width: 1.5; }
+    .timer  { fill: #f8fafc; stroke: #64748b; stroke-width: 1.2; stroke-dasharray: 4 3; }
+    .flow   { stroke: #2563eb; stroke-width: 2; fill: none; }
+    .hook   { stroke: #059669; stroke-width: 1.5; fill: none; stroke-dasharray: 5 4; }
+  </style>
+  <defs>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#059669"/></marker>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="959" height="519" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+
+  <text class="t" x="480" y="38" font-size="22" font-weight="700" text-anchor="middle">Benchmark::run()：模板方法把"测什么"和"怎么测"分开</text>
+  <text class="sub" x="480" y="62" text-anchor="middle" style="font-size:13px">基类固定流程与计时方式（蓝），子类只填三个钩子（绿），保证四个测试用完全相同的规则计分</text>
+
+  <!-- 流程行 -->
+  <rect class="ctrl" x="30" y="100" width="120" height="64" rx="8"/>
+  <text class="mono" x="90" y="128" text-anchor="middle">setup()</text>
+  <text class="sub" x="90" y="148" text-anchor="middle">建文件、映射</text>
+
+  <rect class="timer" x="180" y="108" width="96" height="48" rx="8"/>
+  <text class="sub" x="228" y="137" text-anchor="middle">⏱ 开始计时</text>
+
+  <rect class="ctrl" x="306" y="100" width="150" height="64" rx="8"/>
+  <text class="mono" x="381" y="128" text-anchor="middle">execute() × N</text>
+  <text class="sub" x="381" y="148" text-anchor="middle">只有这里被计时</text>
+  <path class="flow" d="M 420 100 C 420 78, 342 78, 342 97" marker-end="url(#ab)"/>
+  <text class="sub" x="428" y="88">重复 N 次</text>
+
+  <rect class="timer" x="486" y="108" width="96" height="48" rx="8"/>
+  <text class="sub" x="534" y="137" text-anchor="middle">⏱ 停止计时</text>
+
+  <rect class="ctrl" x="612" y="100" width="120" height="64" rx="8"/>
+  <text class="mono" x="672" y="128" text-anchor="middle">teardown()</text>
+  <text class="sub" x="672" y="148" text-anchor="middle">解除映射、删文件</text>
+
+  <rect class="main" x="762" y="92" width="168" height="80" rx="8"/>
+  <text class="sub" x="846" y="114" text-anchor="middle">吞吐量 MB/s =</text>
+  <text class="mono" x="846" y="136" text-anchor="middle" style="font-size:12px">bytes_processed()</text>
+  <text class="mono" x="846" y="156" text-anchor="middle" style="font-size:12px">× N ÷ 耗时</text>
+
+  <line class="flow" x1="150" y1="132" x2="177" y2="132" marker-end="url(#ab)"/>
+  <line class="flow" x1="276" y1="132" x2="303" y2="132" marker-end="url(#ab)"/>
+  <line class="flow" x1="456" y1="132" x2="483" y2="132" marker-end="url(#ab)"/>
+  <line class="flow" x1="582" y1="132" x2="609" y2="132" marker-end="url(#ab)"/>
+  <line class="flow" x1="732" y1="132" x2="759" y2="132" marker-end="url(#ab)"/>
+
+  <!-- 钩子总线 -->
+  <line x1="90" y1="226" x2="846" y2="226" stroke="#059669" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <line class="hook" x1="90" y1="226" x2="90" y2="167" marker-end="url(#ag)"/>
+  <line class="hook" x1="381" y1="226" x2="381" y2="167" marker-end="url(#ag)"/>
+  <line class="hook" x1="672" y1="226" x2="672" y2="167" marker-end="url(#ag)"/>
+  <line class="hook" x1="846" y1="226" x2="846" y2="175" marker-end="url(#ag)"/>
+  <rect x="404" y="212" width="132" height="26" rx="13" fill="#ffffff" stroke="#059669"/>
+  <text class="sub" x="470" y="230" text-anchor="middle" fill="#059669">子类 override 钩子</text>
+  <line class="hook" x1="137" y1="256" x2="137" y2="229"/>
+  <line class="hook" x1="365" y1="256" x2="365" y2="229"/>
+  <line class="hook" x1="593" y1="256" x2="593" y2="229"/>
+  <line class="hook" x1="821" y1="256" x2="821" y2="229"/>
+
+  <!-- 四个子类 -->
+  <rect class="ctrl" x="30" y="256" width="214" height="132" rx="8"/>
+  <text class="mono" x="137" y="280" text-anchor="middle">MmapSequentialRead</text>
+  <text class="key" x="44" y="306" fill="#059669">setup</text><text class="body" x="104" y="306">建文件 + mmap 全文件</text>
+  <text class="key" x="44" y="332" fill="#059669">execute</text><text class="body" x="104" y="332">sum += ptr[i]</text>
+  <text class="key" x="44" y="358" fill="#059669">bytes</text><text class="body" x="104" y="358">整个文件</text>
+
+  <rect class="persist" x="258" y="256" width="214" height="132" rx="8"/>
+  <text class="mono" x="365" y="280" text-anchor="middle">ReadSequentialRead</text>
+  <text class="key" x="272" y="306" fill="#ea580c">setup</text><text class="body" x="332" y="306">建文件 + open</text>
+  <text class="key" x="272" y="332" fill="#ea580c">execute</text><text class="body" x="332" y="332">read 64KB 循环</text>
+  <text class="key" x="272" y="358" fill="#ea580c">bytes</text><text class="body" x="332" y="358">整个文件</text>
+
+  <rect class="ctrl" x="486" y="256" width="214" height="132" rx="8"/>
+  <text class="mono" x="593" y="280" text-anchor="middle">MmapRandomRead</text>
+  <text class="key" x="500" y="306" fill="#059669">setup</text><text class="body" x="560" y="306">10 万偏移 + mmap</text>
+  <text class="key" x="500" y="332" fill="#059669">execute</text><text class="body" x="560" y="332">memcpy 4 B</text>
+  <text class="key" x="500" y="358" fill="#059669">bytes</text><text class="body" x="560" y="358">10 万 × 4 B</text>
+
+  <rect class="persist" x="714" y="256" width="214" height="132" rx="8"/>
+  <text class="mono" x="821" y="280" text-anchor="middle">ReadRandomRead</text>
+  <text class="key" x="728" y="306" fill="#ea580c">setup</text><text class="body" x="788" y="306">同一组偏移 + open</text>
+  <text class="key" x="728" y="332" fill="#ea580c">execute</text><text class="body" x="788" y="332">lseek + read 4 B</text>
+  <text class="key" x="728" y="358" fill="#ea580c">bytes</text><text class="body" x="788" y="358">10 万 × 4 B</text>
+
+  <!-- 公平性 -->
+  <rect x="30" y="410" width="898" height="70" rx="10" fill="#f8fafc" stroke="#94a3b8"/>
+  <text class="body" x="48" y="438"><tspan font-weight="700">让对比公平的细节</tspan>：四个测试共用 create_test_file()（随机种子 42）· 两个随机读用同一组偏移（种子 123）</text>
+  <text class="body" x="48" y="462">· 都把结果累加进 volatile sink_，防止编译器把循环删掉 · 计时只包住 execute()，建文件和映射不算在内</text>
+
+  <g transform="translate(40, 504)">
+    <rect class="ctrl" x="0" y="-12" width="16" height="16" rx="3"/><text class="sub" x="24" y="1">mmap 实现 / 子类钩子</text>
+    <rect class="persist" x="170" y="-12" width="16" height="16" rx="3"/><text class="sub" x="194" y="1">read() 实现</text>
+    <rect class="main" x="290" y="-12" width="16" height="16" rx="3"/><text class="sub" x="314" y="1">基类固定逻辑</text>
+    <rect class="timer" x="410" y="-12" width="16" height="16" rx="3"/><text class="sub" x="434" y="1">计时点</text>
+  </g>
+</svg>

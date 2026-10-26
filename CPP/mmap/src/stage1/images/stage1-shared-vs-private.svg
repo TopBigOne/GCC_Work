@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 590" width="960" height="590">
+  <title>MAP_SHARED 与 MAP_PRIVATE 的写入路径</title>
+  <style>
+    .t     { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #0f172a; }
+    .mono  { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; fill: #0f172a; }
+    .sub   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #475569; }
+    .panel { fill: #f8fafc; stroke: #cbd5e1; }
+    .main  { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.5; }
+    .dirty { fill: #fff7ed; stroke: #ea580c; stroke-width: 1.5; }
+    .cow   { fill: #ecfdf5; stroke: #059669; stroke-width: 1.5; }
+    .ro    { fill: #ffffff; stroke: #64748b; stroke-width: 1.5; stroke-dasharray: 5 3; }
+    .lb    { stroke: #2563eb; stroke-width: 1.8; fill: none; }
+    .lo    { stroke: #ea580c; stroke-width: 1.8; fill: none; }
+    .lg    { stroke: #059669; stroke-width: 1.8; fill: none; }
+    .lx    { stroke: #64748b; stroke-width: 1.5; fill: none; stroke-dasharray: 5 4; }
+  </style>
+  <defs>
+    <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker>
+    <marker id="o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/></marker>
+    <marker id="gr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#059669"/></marker>
+    <marker id="x" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#64748b"/></marker>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="959" height="589" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+  <text class="t" x="480" y="38" text-anchor="middle" style="font-size:22px;font-weight:700">同样是写 ptr[0..3]，SHARED 和 PRIVATE 走了两条路</text>
+  <text class="sub" x="480" y="62" text-anchor="middle" style="font-size:13px">对应 demo_shared_vs_private：文件初始内容都是 AAAA</text>
+
+  <!-- 左：SHARED -->
+  <rect class="panel" x="20" y="80" width="450" height="450" rx="10"/>
+  <text class="t" x="245" y="108" text-anchor="middle" style="font-size:15px;font-weight:700">MAP_SHARED：改的就是文件本身</text>
+
+  <rect class="main" x="95" y="125" width="300" height="50" rx="8"/>
+  <text class="mono" x="245" y="146" text-anchor="middle" style="font-size:13px">memset(ptr, 'B', 4)</text>
+  <text class="sub" x="245" y="165" text-anchor="middle">进程通过映射写入</text>
+
+  <line class="lb" x1="245" y1="175" x2="245" y2="236" marker-end="url(#b)"/>
+  <text class="sub" x="255" y="210">PTE 直接指向 page cache 页</text>
+
+  <rect class="dirty" x="95" y="240" width="300" height="56" rx="8"/>
+  <text class="t" x="245" y="263" text-anchor="middle" style="font-size:13px">page cache 页：AAAA → BBBB</text>
+  <text class="sub" x="245" y="284" text-anchor="middle">被写过，标记为脏页</text>
+
+  <line class="lo" x1="245" y1="296" x2="245" y2="356" marker-end="url(#o)"/>
+  <text class="sub" x="255" y="330">msync(MS_SYNC) / 内核回写</text>
+
+  <rect class="main" x="95" y="360" width="300" height="50" rx="8"/>
+  <text class="t" x="245" y="382" text-anchor="middle" style="font-size:13px">磁盘文件：BBBB</text>
+  <text class="sub" x="245" y="400" text-anchor="middle">read() 验证：文件被修改了</text>
+
+  <text class="sub" x="40" y="448">• 另一个进程映射同一文件，立刻能看到 BBBB（同一物理页）</text>
+  <text class="sub" x="40" y="470">• 文件必须以 O_RDWR 打开，否则 mmap 返回 EACCES</text>
+  <text class="sub" x="40" y="492">• 用途：数据库、日志、进程间共享数据</text>
+
+  <!-- 右：PRIVATE -->
+  <rect class="panel" x="490" y="80" width="450" height="450" rx="10"/>
+  <text class="t" x="715" y="108" text-anchor="middle" style="font-size:15px;font-weight:700">MAP_PRIVATE：写时复制（COW）</text>
+
+  <rect class="main" x="565" y="125" width="300" height="50" rx="8"/>
+  <text class="mono" x="715" y="146" text-anchor="middle" style="font-size:13px">memset(ptr, 'C', 4)</text>
+  <text class="sub" x="715" y="165" text-anchor="middle">进程写自己的映射</text>
+
+  <line class="lx" x1="600" y1="175" x2="600" y2="236" marker-end="url(#x)"/>
+  <text class="sub" x="608" y="198" style="font-size:11px">① 写之前：</text>
+  <text class="sub" x="608" y="213" style="font-size:11px">只读指向它</text>
+  <line class="lb" x1="830" y1="175" x2="830" y2="236" marker-end="url(#b)"/>
+  <text class="sub" x="822" y="198" text-anchor="end" style="font-size:11px">③ 写之后：</text>
+  <text class="sub" x="822" y="213" text-anchor="end" style="font-size:11px">PTE 改指向副本</text>
+
+  <rect class="ro" x="505" y="240" width="190" height="56" rx="8"/>
+  <text class="t" x="600" y="263" text-anchor="middle" style="font-size:13px">page cache 页：AAAA</text>
+  <text class="sub" x="600" y="284" text-anchor="middle">和文件共享，保持干净</text>
+
+  <line class="lg" x1="695" y1="268" x2="731" y2="268" marker-end="url(#gr)"/>
+  <text class="sub" x="715" y="232" text-anchor="middle" style="font-size:11px;fill:#059669">② 复制</text>
+
+  <rect class="cow" x="735" y="240" width="190" height="56" rx="8"/>
+  <text class="t" x="830" y="263" text-anchor="middle" style="font-size:13px">副本页：CCCC</text>
+  <text class="sub" x="830" y="284" text-anchor="middle">私有匿名页，只属于本进程</text>
+
+  <line class="lx" x1="600" y1="296" x2="600" y2="356" marker-end="url(#x)"/>
+  <text class="sub" x="610" y="330">不受影响</text>
+
+  <rect class="main" x="505" y="360" width="190" height="50" rx="8"/>
+  <text class="t" x="600" y="382" text-anchor="middle" style="font-size:13px">磁盘文件：AAAA</text>
+  <text class="sub" x="600" y="400" text-anchor="middle">文件没有变化</text>
+
+  <text class="sub" x="830" y="330" text-anchor="middle">munmap 后副本直接丢弃</text>
+  <text class="sub" x="830" y="348" text-anchor="middle">永远不会写回文件</text>
+
+  <text class="sub" x="510" y="448">• 写只读 PTE → 写保护缺页 → 内核分配新页、复制、更新 PTE</text>
+  <text class="sub" x="510" y="470">• 文件以 O_RDONLY 打开也能用 PROT_WRITE 映射</text>
+  <text class="sub" x="510" y="492">• 用途：加载动态库 / 可执行文件、读配置后在本地修改</text>
+
+  <!-- 图例 -->
+  <g transform="translate(30,565)">
+    <rect class="main" x="0" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="24" y="1">进程 / 文件</text>
+    <rect class="dirty" x="120" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="144" y="1">脏页 → 写回</text>
+    <rect class="cow" x="250" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="274" y="1">COW 私有副本</text>
+    <rect class="ro" x="390" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="414" y="1">只读共享 / 不受影响</text>
+  </g>
+</svg>

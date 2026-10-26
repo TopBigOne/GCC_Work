@@ -1,0 +1,160 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 800" width="960" height="800">
+  <title>设备 mmap 调用路径</title>
+  <style>
+    .t      { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #0f172a; }
+    .mono   { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; fill: #0f172a; }
+    .sub    { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #475569; }
+    .fn     { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 11px; fill: #64748b; }
+    .band   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 14px; font-weight: 600; fill: #334155; }
+    .main   { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.5; }
+    .ctrl   { fill: #ecfdf5; stroke: #059669; stroke-width: 1.5; }
+    .hw     { fill: #fff7ed; stroke: #ea580c; stroke-width: 1.5; }
+    .flow   { stroke: #2563eb; stroke-width: 2; fill: none; }
+    .flowo  { stroke: #ea580c; stroke-width: 1.5; fill: none; }
+    .link   { stroke: #059669; stroke-width: 1.5; fill: none; stroke-dasharray: 5 4; }
+  </style>
+  <defs>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+    <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/>
+    </marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#059669"/>
+    </marker>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="959" height="799" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+
+  <text class="t" x="480" y="40" font-size="22" font-weight="700" text-anchor="middle">设备 mmap：驱动决定这段地址指向哪里</text>
+  <text class="sub" x="480" y="64" text-anchor="middle" style="font-size:13px">对设备 fd 调用 mmap，内核把请求转给驱动；映射建好后，CPU 读写直达设备内存，不再经过内核</text>
+
+  <!-- ===== 用户态 ===== -->
+  <rect x="16" y="82" width="928" height="160" rx="10" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text class="band" x="30" y="103">用户态</text>
+  <text class="sub" x="90" y="103">DeviceMapper::run() 按固定顺序调用下面这些虚函数（模板方法模式）</text>
+
+  <rect class="main" x="44" y="112" width="160" height="74" rx="8"/>
+  <text class="mono" x="124" y="136" font-size="14" text-anchor="middle">open()</text>
+  <text class="sub" x="124" y="156" text-anchor="middle">/dev/fb0 · /dev/video0</text>
+  <text class="sub" x="124" y="174" text-anchor="middle">card0 · dma-buf fd</text>
+
+  <rect class="main" x="222" y="112" width="160" height="74" rx="8"/>
+  <text class="mono" x="302" y="136" font-size="14" text-anchor="middle">ioctl()</text>
+  <text class="sub" x="302" y="156" text-anchor="middle">查询参数 / 申请缓冲</text>
+  <text class="sub" x="302" y="174" text-anchor="middle">拿到 size、offset</text>
+
+  <rect class="main" x="400" y="112" width="160" height="74" rx="8" stroke-width="2"/>
+  <text class="mono" x="480" y="136" font-size="14" font-weight="700" text-anchor="middle">mmap()</text>
+  <text class="sub" x="480" y="156" text-anchor="middle">MAP_SHARED, fd</text>
+  <text class="sub" x="480" y="174" text-anchor="middle">offset 选中哪块缓冲</text>
+
+  <rect class="main" x="578" y="112" width="160" height="74" rx="8"/>
+  <text class="mono" x="658" y="136" font-size="14" text-anchor="middle">ptr[i] = …</text>
+  <text class="sub" x="658" y="156" text-anchor="middle">写像素 / 读视频帧</text>
+  <text class="sub" x="658" y="174" text-anchor="middle">零拷贝，不进内核</text>
+
+  <rect class="main" x="756" y="112" width="160" height="74" rx="8"/>
+  <text class="mono" x="836" y="136" font-size="14" text-anchor="middle">munmap + close</text>
+  <text class="sub" x="836" y="156" text-anchor="middle">解除映射</text>
+  <text class="sub" x="836" y="174" text-anchor="middle">关闭设备</text>
+
+  <line class="flow" x1="204" y1="149" x2="218" y2="149" marker-end="url(#ab)"/>
+  <line class="flow" x1="382" y1="149" x2="396" y2="149" marker-end="url(#ab)"/>
+  <line class="flow" x1="560" y1="149" x2="574" y2="149" marker-end="url(#ab)"/>
+  <line class="flow" x1="738" y1="149" x2="752" y2="149" marker-end="url(#ab)"/>
+
+  <!-- 每步对应的虚函数 -->
+  <text class="fn" x="124" y="212" text-anchor="middle">open_device()</text>
+  <path d="M230,194 L230,200 L552,200 L552,194" stroke="#94a3b8" fill="none"/>
+  <text class="fn" x="391" y="216" text-anchor="middle">map_memory()</text>
+  <text class="fn" x="658" y="212" text-anchor="middle">process_data()</text>
+  <text class="fn" x="836" y="212" text-anchor="middle">unmap_memory()</text>
+
+  <!-- ===== 内核 ===== -->
+  <rect x="16" y="256" width="928" height="300" rx="10" fill="#f1f5f9" stroke="#e2e8f0"/>
+  <text class="band" x="30" y="277">内核</text>
+
+  <line class="flow" x1="302" y1="186" x2="302" y2="286" marker-end="url(#ab)"/>
+  <line class="flow" x1="540" y1="186" x2="540" y2="286" marker-end="url(#ab)"/>
+
+  <rect class="main" x="222" y="290" width="160" height="74" rx="8"/>
+  <text class="t" x="302" y="313" font-size="13" font-weight="600" text-anchor="middle">驱动的 ioctl 处理</text>
+  <text class="sub" x="302" y="333" text-anchor="middle">分配 DMA 缓冲</text>
+  <text class="sub" x="302" y="351" text-anchor="middle">返回 size + offset</text>
+
+  <rect class="main" x="460" y="290" width="160" height="58" rx="8"/>
+  <text class="mono" x="540" y="313" font-size="13" text-anchor="middle">do_mmap()</text>
+  <text class="sub" x="540" y="335" text-anchor="middle">找空闲地址、新建 VMA</text>
+
+  <line class="flow" x1="620" y1="319" x2="656" y2="319" marker-end="url(#ab)"/>
+
+  <rect class="main" x="660" y="290" width="260" height="58" rx="8" stroke-width="2"/>
+  <text class="mono" x="790" y="313" font-size="13" font-weight="700" text-anchor="middle">f_op-&gt;mmap(file, vma)</text>
+  <text class="sub" x="790" y="335" text-anchor="middle">驱动回调：决定指向哪块物理内存</text>
+
+  <!-- 两种实现方式 -->
+  <line class="flow" x1="690" y1="348" x2="334" y2="396" marker-end="url(#ab)"/>
+  <line class="flow" x1="720" y1="348" x2="604" y2="396" marker-end="url(#ab)"/>
+
+  <rect class="main" x="150" y="400" width="240" height="74" rx="8"/>
+  <text class="mono" x="270" y="423" font-size="13" text-anchor="middle">vm_ops-&gt;fault()</text>
+  <text class="sub" x="270" y="443" text-anchor="middle">首次访问某页时才提供 page</text>
+  <text class="sub" x="270" y="461" text-anchor="middle">适合 DMA 缓冲 / dma-buf / 零页</text>
+
+  <rect class="main" x="450" y="400" width="240" height="74" rx="8"/>
+  <text class="mono" x="570" y="423" font-size="13" text-anchor="middle">remap_pfn_range()</text>
+  <text class="sub" x="570" y="443" text-anchor="middle">mmap 时就把页表一次填好</text>
+  <text class="sub" x="570" y="461" text-anchor="middle">指向固定的物理页帧</text>
+
+  <rect class="ctrl" x="730" y="392" width="190" height="92" rx="8"/>
+  <text class="t" x="825" y="412" font-size="13" font-weight="600" text-anchor="middle">缓存属性 vm_page_prot</text>
+  <text class="sub" x="746" y="432">cached：普通内存，最快</text>
+  <text class="sub" x="746" y="451">uncached：寄存器</text>
+  <text class="sub" x="746" y="470">write-combine：显存</text>
+  <line class="link" x1="730" y1="437" x2="694" y2="437" marker-end="url(#ag)"/>
+
+  <!-- ===== 物理内存 / 硬件 ===== -->
+  <rect x="16" y="570" width="928" height="170" rx="10" fill="#fffdf8" stroke="#e2e8f0"/>
+  <text class="band" x="30" y="591">物理内存 / 硬件</text>
+
+  <line class="flowo" x1="210" y1="474" x2="150" y2="602" marker-end="url(#ao)"/>
+  <line class="flowo" x1="330" y1="474" x2="345" y2="602" marker-end="url(#ao)"/>
+  <line class="flowo" x1="530" y1="474" x2="572" y2="602" marker-end="url(#ao)"/>
+  <line class="flowo" x1="660" y1="474" x2="780" y2="602" marker-end="url(#ao)"/>
+  <line class="link" x1="850" y1="484" x2="842" y2="602" marker-end="url(#ag)"/>
+
+  <rect class="hw" x="44" y="606" width="190" height="74" rx="8"/>
+  <text class="t" x="139" y="629" font-size="13" font-weight="600" text-anchor="middle">零页 / 匿名页</text>
+  <text class="sub" x="139" y="649" text-anchor="middle">/dev/zero（Linux）</text>
+  <text class="sub" x="139" y="667" text-anchor="middle">缺页时分配清零页</text>
+
+  <rect class="hw" x="250" y="606" width="190" height="74" rx="8"/>
+  <text class="t" x="345" y="629" font-size="13" font-weight="600" text-anchor="middle">DMA 缓冲区</text>
+  <text class="sub" x="345" y="649" text-anchor="middle">V4L2 视频帧 · dma-buf</text>
+  <text class="sub" x="345" y="667" text-anchor="middle">设备直接写入</text>
+
+  <rect class="hw" x="470" y="606" width="210" height="74" rx="8"/>
+  <text class="t" x="575" y="629" font-size="13" font-weight="600" text-anchor="middle">显存 / framebuffer</text>
+  <text class="sub" x="575" y="649" text-anchor="middle">fbdev · DRM dumb buffer</text>
+  <text class="sub" x="575" y="667" text-anchor="middle">写像素 = 改屏幕</text>
+
+  <rect class="hw" x="700" y="606" width="216" height="74" rx="8"/>
+  <text class="t" x="808" y="629" font-size="13" font-weight="600" text-anchor="middle">设备寄存器 (MMIO)</text>
+  <text class="sub" x="808" y="649" text-anchor="middle">FPGA · UIO 驱动</text>
+  <text class="sub" x="808" y="667" text-anchor="middle">必须 uncached</text>
+
+  <text class="sub" x="480" y="718" text-anchor="middle">映射建好后，CPU 访问 ptr[i] 经 MMU 页表直接到达这些物理内存，内核不再参与</text>
+
+  <!-- 图例 -->
+  <g transform="translate(150, 772)">
+    <rect class="main" x="0" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="24" y="1">调用流程</text>
+    <rect class="ctrl" x="110" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="134" y="1">页表缓存属性</text>
+    <rect class="hw" x="244" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="268" y="1">最终被映射的物理内存 / 设备</text>
+    <text class="fn" x="460" y="1">灰色等宽字 = DeviceMapper 中对应的函数</text>
+  </g>
+</svg>

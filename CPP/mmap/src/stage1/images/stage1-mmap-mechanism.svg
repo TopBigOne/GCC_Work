@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 680" width="960" height="680">
+  <title>mmap 文件映射的工作机制</title>
+  <style>
+    .t     { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #0f172a; }
+    .mono  { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; fill: #0f172a; }
+    .sub   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #475569; }
+    .hd    { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 14px; font-weight: 600; fill: #334155; }
+    .col   { fill: #f8fafc; stroke: #94a3b8; stroke-width: 1.2; }
+    .seg   { fill: #f1f5f9; stroke: #cbd5e1; }
+    .main  { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.5; }
+    .dirty { fill: #fff7ed; stroke: #ea580c; stroke-width: 1.5; }
+    .empty { fill: #ffffff; stroke: #94a3b8; stroke-dasharray: 4 3; }
+    .step  { fill: #ffffff; stroke: #2563eb; stroke-width: 1.5; }
+    .ln    { stroke: #64748b; stroke-width: 1.3; fill: none; }
+    .lb    { stroke: #2563eb; stroke-width: 1.8; fill: none; }
+    .lo    { stroke: #ea580c; stroke-width: 1.8; fill: none; }
+  </style>
+  <defs>
+    <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#64748b"/></marker>
+    <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker>
+    <marker id="o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/></marker>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="959" height="679" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+  <text class="t" x="480" y="38" text-anchor="middle" style="font-size:22px;font-weight:700">mmap 文件映射是怎么工作的</text>
+  <text class="sub" x="480" y="62" text-anchor="middle" style="font-size:13px">进程地址 → 页表 → 物理页（page cache）→ 磁盘文件：mmap 只建立“地址 ↔ 文件”的对应关系，真正的数据按页、按需搬运</text>
+
+  <!-- 列标题 -->
+  <text class="hd" x="140" y="100" text-anchor="middle">进程虚拟地址空间</text>
+  <text class="hd" x="390" y="100" text-anchor="middle">页表（MMU 查询）</text>
+  <text class="hd" x="610" y="100" text-anchor="middle">物理内存 · page cache</text>
+  <text class="hd" x="870" y="100" text-anchor="middle">磁盘文件</text>
+
+  <!-- A: 地址空间 -->
+  <rect class="col" x="30" y="112" width="220" height="358" rx="8"/>
+  <rect class="seg" x="45" y="125" width="190" height="34" rx="4"/>
+  <text class="t" x="140" y="147" text-anchor="middle" style="font-size:13px">栈</text>
+  <text class="sub" x="140" y="182" text-anchor="middle">⋮</text>
+  <rect class="main" x="45" y="195" width="190" height="130" rx="6" stroke-width="2"/>
+  <text class="t" x="140" y="213" text-anchor="middle" style="font-size:12px;font-weight:600">mmap 映射区（一个 VMA）</text>
+  <rect x="55" y="222" width="170" height="28" rx="4" fill="#ffffff" stroke="#93c5fd"/>
+  <text class="sub" x="140" y="241" text-anchor="middle">第 0 页</text>
+  <rect x="55" y="254" width="170" height="28" rx="4" fill="#ffffff" stroke="#93c5fd"/>
+  <text class="sub" x="140" y="273" text-anchor="middle">第 1 页</text>
+  <rect x="55" y="286" width="170" height="28" rx="4" fill="#ffffff" stroke="#93c5fd"/>
+  <text class="sub" x="140" y="305" text-anchor="middle">第 2 页</text>
+  <text class="mono" x="140" y="343" text-anchor="middle" style="font-size:11px;fill:#64748b">addr ～ addr + len</text>
+  <rect class="seg" x="45" y="358" width="190" height="34" rx="4"/>
+  <text class="t" x="140" y="380" text-anchor="middle" style="font-size:13px">堆</text>
+  <rect class="seg" x="45" y="403" width="190" height="34" rx="4"/>
+  <text class="t" x="140" y="425" text-anchor="middle" style="font-size:13px">代码 / 数据段</text>
+  <text class="sub" x="140" y="458" text-anchor="middle" style="font-size:11px">返回的 addr 由内核选，按页对齐</text>
+
+  <!-- B: 页表 -->
+  <rect class="col" x="290" y="112" width="200" height="358" rx="8"/>
+  <rect class="main" x="305" y="222" width="170" height="28" rx="4"/>
+  <text class="mono" x="390" y="241" text-anchor="middle" style="font-size:12px">PTE → 物理页 P1</text>
+  <rect class="main" x="305" y="254" width="170" height="28" rx="4"/>
+  <text class="mono" x="390" y="273" text-anchor="middle" style="font-size:12px">PTE → 物理页 P2</text>
+  <rect class="empty" x="305" y="286" width="170" height="28" rx="4"/>
+  <text class="sub" x="390" y="305" text-anchor="middle">PTE 空（还没访问过）</text>
+  <text class="sub" x="305" y="350">MMU 只认页表：</text>
+  <text class="sub" x="305" y="368">PTE 为空 → 触发缺页异常</text>
+  <text class="sub" x="305" y="410">close(fd) 不影响映射：</text>
+  <text class="sub" x="305" y="428">VMA 自己持有文件引用</text>
+
+  <line class="ln" x1="225" y1="236" x2="301" y2="236" marker-end="url(#g)"/>
+  <line class="ln" x1="225" y1="268" x2="301" y2="268" marker-end="url(#g)"/>
+  <line class="ln" x1="225" y1="300" x2="301" y2="300" marker-end="url(#g)"/>
+
+  <!-- C: page cache -->
+  <rect class="col" x="520" y="112" width="180" height="358" rx="8"/>
+  <rect class="dirty" x="532" y="222" width="156" height="28" rx="4"/>
+  <text class="t" x="610" y="241" text-anchor="middle" style="font-size:12px">P1：文件第 0 页（脏）</text>
+  <rect class="main" x="532" y="254" width="156" height="28" rx="4"/>
+  <text class="t" x="610" y="273" text-anchor="middle" style="font-size:12px">P2：文件第 1 页</text>
+  <text class="sub" x="532" y="350">同一文件的 MAP_SHARED</text>
+  <text class="sub" x="532" y="368">映射、read()/write()</text>
+  <text class="sub" x="532" y="386">都共用这些物理页</text>
+  <text class="sub" x="532" y="428">被写过的页 = 脏页</text>
+  <text class="sub" x="532" y="446">等待写回磁盘</text>
+
+  <line class="lb" x1="475" y1="236" x2="528" y2="236" marker-end="url(#b)"/>
+  <line class="lb" x1="475" y1="268" x2="528" y2="268" marker-end="url(#b)"/>
+
+  <!-- D: 磁盘 -->
+  <rect class="col" x="800" y="112" width="140" height="358" rx="8"/>
+  <rect x="812" y="200" width="116" height="126" rx="6" fill="#ffffff" stroke="#64748b"/>
+  <text class="mono" x="870" y="215" text-anchor="middle" style="font-size:11px;fill:#475569">hello.txt</text>
+  <rect class="seg" x="820" y="222" width="100" height="28" rx="3"/>
+  <text class="sub" x="870" y="241" text-anchor="middle">块 0</text>
+  <rect class="seg" x="820" y="254" width="100" height="28" rx="3"/>
+  <text class="sub" x="870" y="273" text-anchor="middle">块 1</text>
+  <rect class="seg" x="820" y="286" width="100" height="28" rx="3"/>
+  <text class="sub" x="870" y="305" text-anchor="middle">块 2</text>
+  <text class="sub" x="812" y="360">munmap 只拆映射</text>
+  <text class="sub" x="812" y="378">脏页留在 page cache</text>
+  <text class="sub" x="812" y="396">由内核择机回写</text>
+
+  <text class="sub" x="750" y="229" text-anchor="middle" style="font-size:11px;fill:#ea580c">msync / 回写</text>
+  <line class="lo" x1="690" y1="236" x2="816" y2="236" marker-end="url(#o)"/>
+  <text class="sub" x="750" y="292" text-anchor="middle" style="font-size:11px;fill:#2563eb">缺页时读入</text>
+  <line class="lb" x1="818" y1="268" x2="692" y2="268" marker-end="url(#b)"/>
+
+  <!-- 首次访问流程 -->
+  <text class="hd" x="30" y="508">首次访问 addr[0] 时发生了什么（按需加载 demand paging）</text>
+  <rect class="step" x="30" y="522" width="205" height="66" rx="8"/>
+  <text class="t" x="132" y="549" text-anchor="middle" style="font-size:13px">① CPU 访问 addr[0]</text>
+  <text class="sub" x="132" y="570" text-anchor="middle">查页表：PTE 为空</text>
+  <rect class="step" x="265" y="522" width="205" height="66" rx="8"/>
+  <text class="t" x="367" y="549" text-anchor="middle" style="font-size:13px">② 触发缺页异常</text>
+  <text class="sub" x="367" y="570" text-anchor="middle">CPU 陷入内核 page fault</text>
+  <rect class="step" x="500" y="522" width="205" height="66" rx="8"/>
+  <text class="t" x="602" y="549" text-anchor="middle" style="font-size:13px">③ 按 VMA 找到文件+偏移</text>
+  <text class="sub" x="602" y="570" text-anchor="middle">磁盘块 → page cache 物理页</text>
+  <rect class="step" x="735" y="522" width="205" height="66" rx="8"/>
+  <text class="t" x="837" y="549" text-anchor="middle" style="font-size:13px">④ 填写 PTE 指向该页</text>
+  <text class="sub" x="837" y="570" text-anchor="middle">回到用户态，重新执行指令</text>
+  <line class="lb" x1="235" y1="555" x2="261" y2="555" marker-end="url(#b)"/>
+  <line class="lb" x1="470" y1="555" x2="496" y2="555" marker-end="url(#b)"/>
+  <line class="lb" x1="705" y1="555" x2="731" y2="555" marker-end="url(#b)"/>
+  <text class="sub" x="30" y="612">之后再访问同一页：MMU 直接命中 PTE，不再进内核——这就是 mmap 读文件“零拷贝”的来源。</text>
+
+  <!-- 图例 -->
+  <g transform="translate(30,650)">
+    <rect class="main" x="0" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="24" y="1">映射 / 读入路径</text>
+    <rect class="dirty" x="150" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="174" y="1">脏页 / 写回路径</text>
+    <rect class="empty" x="300" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="324" y="1">尚未建立（按需填充）</text>
+  </g>
+</svg>

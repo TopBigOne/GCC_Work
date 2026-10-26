@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 680" width="960" height="680">
+  <title>配套系统调用各自作用在哪一层</title>
+  <style>
+    .t     { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #0f172a; }
+    .mono  { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; fill: #0f172a; }
+    .sub   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #475569; }
+    .err   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #dc2626; font-weight: 600; }
+    .band  { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.5; }
+    .ctrl  { fill: #ecfdf5; stroke: #059669; stroke-width: 1.5; }
+    .pers  { fill: #fff7ed; stroke: #ea580c; stroke-width: 1.5; }
+    .file  { fill: #f8fafc; stroke: #64748b; stroke-width: 1.5; }
+    .lg    { stroke: #059669; stroke-width: 1.8; fill: none; }
+    .lo    { stroke: #ea580c; stroke-width: 1.8; fill: none; }
+    .lb    { stroke: #2563eb; stroke-width: 1.8; fill: none; }
+  </style>
+  <defs>
+    <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#059669"/></marker>
+    <marker id="o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/></marker>
+    <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="959" height="679" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+  <text class="t" x="480" y="38" text-anchor="middle" style="font-size:22px;font-weight:700">配套系统调用各自作用在哪一层</text>
+  <text class="sub" x="480" y="62" text-anchor="middle" style="font-size:13px">一次 addr[i] 访问要穿过 5 层；每个调用只改其中一层，用错时信号回到最上层的进程</text>
+
+  <!-- L1 进程 -->
+  <rect class="band" x="30" y="85" width="610" height="85" rx="8"/>
+  <text class="t" x="48" y="108" style="font-size:14px;font-weight:600">① 进程：读写 addr[i]</text>
+  <text class="mono" x="48" y="133" style="font-size:12px">ptr[0] = 'X';  c = ptr[i];</text>
+  <text class="sub" x="48" y="156">每次访问都由 MMU 查页表、检查权限</text>
+  <text class="err" x="330" y="128">⚡ 写只读页 → SIGSEGV（macOS 实测 SIGBUS）</text>
+  <text class="err" x="330" y="152">⚡ 访问文件末尾之后的整页 → SIGBUS</text>
+
+  <!-- L2 VMA -->
+  <rect class="band" x="30" y="185" width="610" height="85" rx="8"/>
+  <text class="t" x="48" y="208" style="font-size:14px;font-weight:600">② VMA：内核对这段映射的描述</text>
+  <text class="sub" x="48" y="232">范围 [addr, addr+len) · prot 权限 · flags · 文件 + offset · madvise 建议</text>
+  <text class="sub" x="48" y="254">只改一部分页的权限时，一个 VMA 会被拆成多段</text>
+
+  <!-- L3 页表 -->
+  <rect class="band" x="30" y="285" width="610" height="85" rx="8"/>
+  <text class="t" x="48" y="308" style="font-size:14px;font-weight:600">③ 页表 + 物理页</text>
+  <text class="sub" x="48" y="332">PTE：虚拟页 → 物理页，带 R / W / X 权限位</text>
+  <text class="sub" x="48" y="354">内存紧张时，物理页可能被换出到 swap 或被回收</text>
+
+  <!-- L4 page cache -->
+  <rect class="band" x="30" y="385" width="610" height="110" rx="8"/>
+  <text class="t" x="48" y="408" style="font-size:14px;font-weight:600">④ page cache：文件内容的内存缓存</text>
+  <text class="sub" x="48" y="432">预读：顺序访问时提前把后面的页读进来</text>
+  <text class="sub" x="48" y="454">被写过的页 = 脏页，等待写回磁盘</text>
+  <text class="sub" x="48" y="476">内存回收 / MADV_DONTNEED 会丢弃干净页，下次访问再缺页读回</text>
+
+  <!-- L5 磁盘 -->
+  <rect class="file" x="30" y="515" width="610" height="85" rx="8"/>
+  <text class="t" x="48" y="538" style="font-size:14px;font-weight:600">⑤ 磁盘文件</text>
+  <text class="sub" x="48" y="562">文件大小决定映射里哪些页“有数据”</text>
+  <text class="sub" x="48" y="584">超出文件末尾的整页无数据可读 → 访问即 SIGBUS</text>
+
+  <!-- 写回小箭头 L4 → L5 -->
+  <line class="lo" x1="600" y1="470" x2="600" y2="540" marker-end="url(#o)"/>
+  <text class="sub" x="592" y="510" text-anchor="end" style="font-size:11px;fill:#ea580c">写回</text>
+
+  <!-- 右列：系统调用 -->
+  <text class="t" x="810" y="100" text-anchor="middle" style="font-size:14px;font-weight:600;fill:#334155">系统调用 → 作用的层</text>
+
+  <rect class="ctrl" x="680" y="203" width="260" height="50" rx="8"/>
+  <text class="mono" x="810" y="224" text-anchor="middle" style="font-size:13px">mprotect(addr, len, prot)</text>
+  <text class="sub" x="810" y="243" text-anchor="middle">改 VMA 的 prot + PTE 权限位</text>
+  <line class="lg" x1="680" y1="228" x2="644" y2="228" marker-end="url(#g)"/>
+  <line class="lg" x1="700" y1="253" x2="644" y2="318" marker-end="url(#g)"/>
+
+  <rect class="ctrl" x="680" y="303" width="260" height="50" rx="8"/>
+  <text class="mono" x="810" y="324" text-anchor="middle" style="font-size:13px">mlock / munlock</text>
+  <text class="sub" x="810" y="343" text-anchor="middle">立即调入并钉住物理页，禁止换出</text>
+  <line class="lg" x1="680" y1="342" x2="644" y2="342" marker-end="url(#g)"/>
+
+  <rect class="ctrl" x="680" y="390" width="260" height="46" rx="8"/>
+  <text class="mono" x="810" y="409" text-anchor="middle" style="font-size:13px">madvise(addr, len, advice)</text>
+  <text class="sub" x="810" y="427" text-anchor="middle">调整预读 / 回收策略（只是建议）</text>
+  <line class="lg" x1="680" y1="413" x2="644" y2="413" marker-end="url(#g)"/>
+
+  <rect class="pers" x="680" y="444" width="260" height="46" rx="8"/>
+  <text class="mono" x="810" y="463" text-anchor="middle" style="font-size:13px">msync(addr, len, MS_SYNC)</text>
+  <text class="sub" x="810" y="481" text-anchor="middle">脏页 → 磁盘，阻塞到写完</text>
+  <line class="lo" x1="680" y1="467" x2="644" y2="467" marker-end="url(#o)"/>
+
+  <rect class="band" x="680" y="532" width="260" height="50" rx="8"/>
+  <text class="mono" x="810" y="553" text-anchor="middle" style="font-size:13px">ftruncate(fd, size)</text>
+  <text class="sub" x="810" y="572" text-anchor="middle">设置文件大小，扩展部分填 0</text>
+  <line class="lb" x1="680" y1="557" x2="644" y2="557" marker-end="url(#b)"/>
+
+  <!-- 图例 -->
+  <g transform="translate(30,640)">
+    <rect class="band" x="0" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="24" y="1">访问路径上的层</text>
+    <rect class="ctrl" x="140" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="164" y="1">控制类调用</text>
+    <rect class="pers" x="260" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="284" y="1">持久化 / 写回</text>
+    <text class="err" x="400" y="1">⚡ 红字</text>
+    <text class="sub" x="452" y="1">= 用错时进程收到的信号</text>
+  </g>
+</svg>

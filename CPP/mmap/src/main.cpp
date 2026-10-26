@@ -1,14 +1,14 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include "src/stage1_basic.hpp"
-#include "src/stage2_syscalls.hpp"
-#include "src/stage3_anonymous.hpp"
-#include "src/stage4_shared_mem.hpp"
-#include "src/stage5_device.hpp"
-#include "src/stage7_kernel.hpp"
-#include "src/stage8_benchmark.hpp"
-#include "src/stage9_projects.hpp"
+#include "stage1/stage1_basic.h"
+#include "stage2/stage2_syscalls.h"
+#include "stage3/stage3_anonymous.h"
+#include "stage4/stage4_shared_mem.h"
+#include "stage5/stage5_device.h"
+#include "stage7/stage7_kernel.h"
+#include "stage8/stage8_benchmark.h"
+#include "stage9/stage9_projects.h"
 
 static void print_menu() {
     printf("\n");

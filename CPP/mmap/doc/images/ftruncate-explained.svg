@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 800" width="960" height="800">
+  <title>ftruncate、文件大小与映射长度</title>
+  <style>
+    .t     { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #0f172a; }
+    .mono  { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 12px; fill: #0f172a; }
+    .sub   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #475569; }
+    .lbl   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 13px; fill: #1e293b; font-weight: 700; }
+    .in    { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #1e293b; }
+    .file  { fill: #bfdbfe; stroke: #2563eb; stroke-width: 1.5; }
+    .zero  { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.5; }
+    .tail  { fill: #f1f5f9; stroke: #2563eb; stroke-width: 1.5; }
+    .bus   { fill: #fee2e2; stroke: #dc2626; stroke-width: 1.5; }
+    .nomap { fill: #ffffff; stroke: #94a3b8; stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .eof   { stroke: #dc2626; stroke-width: 2; stroke-dasharray: 4 3; }
+    .brk   { stroke: #059669; stroke-width: 1.5; fill: none; }
+  </style>
+
+  <rect x="0.5" y="0.5" width="959" height="799" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+  <text class="t" x="480" y="36" font-size="20" font-weight="700" text-anchor="middle">文件大小 ≠ 映射长度：ftruncate 决定哪些映射页「有文件可依」</text>
+  <text class="sub" x="480" y="58" text-anchor="middle" style="font-size:13px">每个方块是一页（示意，未按比例）；①–④ 的现象在 macOS（16KB 页）和 Linux（4KB 页）上实测结果完全一致</text>
+
+  <!-- 图例 -->
+  <rect class="file" x="40"  y="72" width="14" height="14"/><text class="sub" x="60"  y="84">文件数据</text>
+  <rect class="tail" x="130" y="72" width="14" height="14"/><text class="sub" x="150" y="84">EOF 后的同页剩余：可访问，读到 0，写入不进文件</text>
+  <rect class="bus"  x="470" y="72" width="14" height="14"/><text class="sub" x="490" y="84">整页超出 EOF：SIGBUS</text>
+  <rect class="nomap" x="640" y="72" width="14" height="14"/><text class="sub" x="660" y="84">不在映射里：SIGSEGV</text>
+  <line class="eof" x1="830" y1="70" x2="830" y2="88"/><text class="sub" x="838" y="84" style="fill:#dc2626">EOF 文件末尾</text>
+
+  <!-- ===== ① ===== -->
+  <text class="lbl" x="30" y="128">① 文件 100 字节，映射 2 页</text>
+  <text class="mono" x="30" y="150">ftruncate(fd, 100)</text>
+  <text class="mono" x="30" y="168">mmap(…, 2 页, …)</text>
+  <rect class="file" x="250" y="112" width="50"  height="60"/>
+  <text class="in" x="275" y="146" text-anchor="middle">100B</text>
+  <rect class="tail" x="300" y="112" width="230" height="60"/>
+  <text class="in" x="415" y="136" text-anchor="middle">同页剩余：读到 0</text>
+  <text class="in" x="415" y="156" text-anchor="middle">写 p[200]='X' 后文件仍是 100B</text>
+  <rect class="bus" x="530" y="112" width="280" height="60"/>
+  <text class="in" x="670" y="136" text-anchor="middle">第 2 页整页在 EOF 之后</text>
+  <text class="in" x="670" y="156" text-anchor="middle" style="fill:#dc2626;font-weight:700">访问 → SIGBUS</text>
+  <line class="eof" x1="300" y1="104" x2="300" y2="180"/>
+  <path class="brk" d="M250,184 v6 h560 v-6"/>
+  <text class="sub" x="530" y="204" text-anchor="middle" style="fill:#059669">映射长度 = 2 页（mmap 时决定，之后不会自己变）</text>
+
+  <!-- ===== ② ===== -->
+  <text class="lbl" x="30" y="258">② 把文件扩到 2 页</text>
+  <text class="mono" x="30" y="280">ftruncate(fd, 2*页)</text>
+  <text class="sub" x="30" y="300">不需要重新映射：</text>
+  <text class="sub" x="30" y="318">映射本来就覆盖了 2 页</text>
+  <rect class="file" x="250" y="242" width="280" height="60"/>
+  <text class="in" x="390" y="266" text-anchor="middle">文件数据</text>
+  <text class="in" x="390" y="286" text-anchor="middle">p[200] 的 'X' 已被清零</text>
+  <rect class="zero" x="530" y="242" width="280" height="60"/>
+  <text class="in" x="670" y="266" text-anchor="middle">新增部分全是 0</text>
+  <text class="in" x="670" y="286" text-anchor="middle" style="fill:#059669;font-weight:700">现在可以访问 ✓</text>
+  <line class="eof" x1="810" y1="234" x2="810" y2="310"/>
+  <text class="sub" x="530" y="330" text-anchor="middle">EOF 之后写进映射的内容不属于文件；文件扩展时这段会被清零</text>
+
+  <!-- ===== ③ ===== -->
+  <text class="lbl" x="30" y="388">③ 文件被截断回 100 字节</text>
+  <text class="mono" x="30" y="410">ftruncate(fd, 100)</text>
+  <text class="sub" x="30" y="430">别的进程截断文件</text>
+  <text class="sub" x="30" y="448">也是同样的效果</text>
+  <rect class="file" x="250" y="372" width="50"  height="60"/>
+  <text class="in" x="275" y="406" text-anchor="middle">100B</text>
+  <rect class="tail" x="300" y="372" width="230" height="60"/>
+  <text class="in" x="415" y="406" text-anchor="middle">同页剩余：读到 0</text>
+  <rect class="bus" x="530" y="372" width="280" height="60"/>
+  <text class="in" x="670" y="396" text-anchor="middle">映射还在，文件内容没了</text>
+  <text class="in" x="670" y="416" text-anchor="middle" style="fill:#dc2626;font-weight:700">访问 → SIGBUS</text>
+  <line class="eof" x1="300" y1="364" x2="300" y2="440"/>
+  <text class="sub" x="530" y="460" text-anchor="middle">这就是用 mmap 读文件的风险：读的过程中文件可能被别人截断</text>
+
+  <!-- ===== ④ ===== -->
+  <text class="lbl" x="30" y="518">④ 映射比文件短</text>
+  <text class="mono" x="30" y="540">mmap(…, 1 页, …)</text>
+  <text class="mono" x="30" y="558">ftruncate(fd, 3*页)</text>
+  <text class="sub" x="30" y="578">映射不会跟着文件变长</text>
+  <rect class="file" x="250" y="502" width="220" height="60"/>
+  <text class="in" x="360" y="526" text-anchor="middle">文件数据</text>
+  <text class="in" x="360" y="546" text-anchor="middle">在映射里，正常访问</text>
+  <rect class="nomap" x="470" y="502" width="220" height="60"/>
+  <text class="in" x="580" y="526" text-anchor="middle">文件有这页，但映射没有</text>
+  <text class="in" x="580" y="546" text-anchor="middle" style="fill:#64748b;font-weight:700">访问 → SIGSEGV</text>
+  <rect class="nomap" x="690" y="502" width="220" height="60"/>
+  <text class="in" x="800" y="526" text-anchor="middle">同上</text>
+  <text class="in" x="800" y="546" text-anchor="middle" style="fill:#64748b;font-weight:700">访问 → SIGSEGV</text>
+  <line class="eof" x1="910" y1="494" x2="910" y2="570"/>
+  <path class="brk" d="M250,574 v6 h220 v-6"/>
+  <text class="sub" x="360" y="596" text-anchor="middle" style="fill:#059669">映射长度 = 1 页</text>
+  <text class="sub" x="690" y="596" text-anchor="middle">要用新空间：munmap + 按新长度 mmap（Linux 可用 mremap），返回地址可能会变</text>
+
+  <!-- ===== 总结 ===== -->
+  <rect x="24" y="622" width="440" height="160" rx="10" fill="#fef2f2" stroke="#fecaca"/>
+  <text class="lbl" x="40" y="646">两种信号怎么区分</text>
+  <text class="sub" x="40" y="670"><tspan style="fill:#dc2626;font-weight:700">SIGBUS</tspan>：地址在映射范围里，</text>
+  <text class="sub" x="40" y="688">但对应的文件内容不存在（整页在 EOF 之后）</text>
+  <text class="sub" x="40" y="714"><tspan style="fill:#475569;font-weight:700">SIGSEGV</tspan>：地址根本不在任何映射里，</text>
+  <text class="sub" x="40" y="732">或权限不允许（如写只读页）</text>
+  <text class="sub" x="40" y="758">映射长度管「地址合不合法」，文件大小管「页有没有内容」</text>
+
+  <rect x="484" y="622" width="452" height="160" rx="10" fill="#f0fdf4" stroke="#bbf7d0"/>
+  <text class="lbl" x="500" y="646">用 mmap 写新文件的正确顺序</text>
+  <text class="mono" x="500" y="672">fd = open(path, O_CREAT|O_RDWR|O_TRUNC, 0644);</text>
+  <text class="mono" x="500" y="694">ftruncate(fd, size);   // ① 先给文件留空间</text>
+  <text class="mono" x="500" y="716">p = mmap(NULL, size, PROT_READ|PROT_WRITE,</text>
+  <text class="mono" x="500" y="734" xml:space="preserve">         MAP_SHARED, fd, 0);    // ② 再映射</text>
+  <text class="mono" x="500" y="756">memcpy(p, data, size); // ③ 最后写入</text>
+</svg>

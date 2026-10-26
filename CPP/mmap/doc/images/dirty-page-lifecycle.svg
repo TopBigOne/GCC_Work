@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" width="960" height="640">
+  <title>脏页的一生</title>
+  <style>
+    .t     { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #0f172a; }
+    .mono  { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 11px; fill: #334155; }
+    .sub   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #475569; }
+    .lbl   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #1e293b; font-weight: 600; }
+    .state { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 17px; font-weight: 700; fill: #0f172a; }
+    .none  { fill: #f8fafc; stroke: #94a3b8; stroke-width: 1.5; stroke-dasharray: 6 4; }
+    .clean { fill: #eff6ff; stroke: #2563eb; stroke-width: 2; }
+    .dirty { fill: #fff7ed; stroke: #ea580c; stroke-width: 2; }
+    .wb    { fill: #fefce8; stroke: #ca8a04; stroke-width: 2; }
+    .trig  { fill: #fff7ed; stroke: #ea580c; stroke-width: 1.2; }
+    .a-blue { stroke: #2563eb; stroke-width: 2; fill: none; }
+    .a-or   { stroke: #ea580c; stroke-width: 2; fill: none; }
+    .a-gray { stroke: #64748b; stroke-width: 2; fill: none; }
+    .a-y    { stroke: #ca8a04; stroke-width: 2; fill: none; }
+  </style>
+  <defs>
+    <marker id="mb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker>
+    <marker id="mo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/></marker>
+    <marker id="mg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#64748b"/></marker>
+    <marker id="my" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ca8a04"/></marker>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="959" height="639" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+  <text class="t" x="480" y="38" font-size="21" font-weight="700" text-anchor="middle">一个文件页的一生：干净 → 脏 → 回写中 → 干净</text>
+  <text class="sub" x="480" y="62" text-anchor="middle" style="font-size:13px">page cache 里的每一页都在这几个状态之间转换；只有「干净页」可以被内核零成本丢弃</text>
+
+  <!-- 状态：不在内存 -->
+  <rect class="none" x="40" y="230" width="170" height="84" rx="12"/>
+  <text class="state" x="125" y="264" text-anchor="middle" fill="#64748b">不在内存</text>
+  <text class="sub" x="125" y="290" text-anchor="middle">page cache 里没有这页</text>
+
+  <!-- 状态：干净页 -->
+  <rect class="clean" x="330" y="110" width="200" height="96" rx="12"/>
+  <text class="state" x="430" y="142" text-anchor="middle">干净页 Clean</text>
+  <text class="sub" x="430" y="166" text-anchor="middle">内存内容 = 磁盘内容</text>
+  <text class="sub" x="430" y="186" text-anchor="middle">需要内存时可直接丢弃</text>
+
+  <!-- 状态：脏页 -->
+  <rect class="dirty" x="700" y="110" width="220" height="96" rx="12"/>
+  <text class="state" x="810" y="142" text-anchor="middle">脏页 Dirty</text>
+  <text class="sub" x="810" y="166" text-anchor="middle">内存比磁盘新</text>
+  <text class="mono" x="810" y="186" text-anchor="middle">PG_dirty = 1</text>
+
+  <!-- 状态：回写中 -->
+  <rect class="wb" x="700" y="330" width="220" height="96" rx="12"/>
+  <text class="state" x="810" y="362" text-anchor="middle">回写中 Writeback</text>
+  <text class="sub" x="810" y="386" text-anchor="middle">I/O 请求已提交给磁盘</text>
+  <text class="mono" x="810" y="406" text-anchor="middle">PG_dirty=0  PG_writeback=1</text>
+
+  <!-- 不在内存 → 干净页 -->
+  <path class="a-blue" d="M125,230 L125,158 L326,158" marker-end="url(#mb)"/>
+  <text class="lbl" x="225" y="148" text-anchor="middle">读 / 缺页读入</text>
+
+  <!-- 干净页 → 脏页 -->
+  <line class="a-or" x1="530" y1="140" x2="696" y2="140" marker-end="url(#mo)"/>
+  <text class="lbl" x="613" y="128" text-anchor="middle">write() / mmap 写入</text>
+  <text class="sub" x="613" y="160" text-anchor="middle">标记脏页</text>
+
+  <!-- 脏页 → 回写中 -->
+  <line class="a-or" x1="860" y1="206" x2="860" y2="326" marker-end="url(#mo)"/>
+  <text class="lbl" x="870" y="258">触发写回</text>
+  <text class="sub" x="870" y="276">见下方①–④</text>
+
+  <!-- 回写中 → 脏页（又被写） -->
+  <line class="a-or" x1="740" y1="330" x2="740" y2="210" stroke-dasharray="5 4" marker-end="url(#mo)"/>
+  <text class="sub" x="732" y="258" text-anchor="end">回写期间又被写入</text>
+  <text class="sub" x="732" y="276" text-anchor="end">→ 重新标脏，下次再写</text>
+
+  <!-- 回写中 → 干净页 -->
+  <path class="a-y" d="M700,378 L430,378 L430,210" marker-end="url(#my)"/>
+  <text class="lbl" x="565" y="368" text-anchor="middle">磁盘写完 · 清除 PG_writeback</text>
+
+  <!-- 干净页 → 不在内存 -->
+  <path class="a-gray" d="M380,206 L380,290 L214,290" marker-end="url(#mg)"/>
+  <text class="lbl" x="297" y="310" text-anchor="middle">内存回收</text>
+  <text class="sub" x="297" y="327" text-anchor="middle">直接丢弃，零成本</text>
+
+  <!-- 匿名脏页说明 -->
+  <rect x="40" y="352" width="330" height="78" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-dasharray="5 4"/>
+  <text class="lbl" x="56" y="374">没有文件可写回的脏页</text>
+  <text class="sub" x="56" y="394">MAP_PRIVATE 写过的页、堆、栈等匿名页也会变脏，</text>
+  <text class="sub" x="56" y="413">只能换出：Linux → swap / zram，macOS → 内存压缩</text>
+
+  <!-- 触发条件 -->
+  <text class="t" x="40" y="470" font-size="14" font-weight="700">什么时候触发写回（脏页 → 回写中）</text>
+
+  <rect class="trig" x="40" y="482" width="205" height="104" rx="8"/>
+  <text class="lbl" x="56" y="504">① 脏得太久</text>
+  <text class="sub" x="56" y="524">脏了超过 30 秒</text>
+  <text class="sub" x="56" y="542">flusher 线程每 5 秒巡检</text>
+  <text class="mono" x="56" y="566">dirty_expire_centisecs</text>
+
+  <rect class="trig" x="265" y="482" width="205" height="104" rx="8"/>
+  <text class="lbl" x="281" y="504">② 脏得太多</text>
+  <text class="sub" x="281" y="524">超过 10%：后台开始写回</text>
+  <text class="sub" x="281" y="542">超过 20%：写进程被阻塞</text>
+  <text class="mono" x="281" y="566">dirty_(background_)ratio</text>
+
+  <rect class="trig" x="490" y="482" width="205" height="104" rx="8"/>
+  <text class="lbl" x="506" y="504">③ 程序主动要求</text>
+  <text class="sub" x="506" y="524">fsync / fdatasync / sync</text>
+  <text class="sub" x="506" y="542">msync(MS_SYNC) 等写完</text>
+  <text class="sub" x="506" y="560">msync(MS_ASYNC) 只发起</text>
+
+  <rect class="trig" x="715" y="482" width="205" height="104" rx="8"/>
+  <text class="lbl" x="731" y="504">④ 内存紧张</text>
+  <text class="sub" x="731" y="524">kswapd 回收内存时，</text>
+  <text class="sub" x="731" y="542">脏页必须先写回才能丢弃</text>
+  <text class="sub" x="731" y="560">→ 回收变慢，系统卡顿</text>
+
+  <text class="sub" x="40" y="614">数值为 Linux 默认值（/proc/sys/vm/）；macOS 由 XNU 的统一缓冲区缓存（UBC）和 vnode pager 管理，策略类似但没有这些可调参数。</text>
+</svg>

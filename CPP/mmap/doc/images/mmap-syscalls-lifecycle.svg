@@ -1,0 +1,174 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 1010" width="960" height="1010">
+  <title>mmap 系统调用生命周期</title>
+  <style>
+    .t      { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #0f172a; }
+    .mono   { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; fill: #0f172a; }
+    .sub    { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #475569; }
+    .phase  { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 14px; font-weight: 600; fill: #334155; }
+    .err    { fill: #dc2626; font-weight: 600; }
+    .main   { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.5; }
+    .ctrl   { fill: #ecfdf5; stroke: #059669; stroke-width: 1.5; }
+    .persist{ fill: #fff7ed; stroke: #ea580c; stroke-width: 1.5; }
+    .core   { fill: #ffffff; stroke: #0f172a; stroke-width: 2; }
+    .flow   { stroke: #2563eb; stroke-width: 2; fill: none; }
+    .link   { stroke: #059669; stroke-width: 1.5; fill: none; }
+    .linko  { stroke: #ea580c; stroke-width: 1.5; fill: none; }
+    .skip   { stroke: #64748b; stroke-width: 1.5; fill: none; stroke-dasharray: 6 4; }
+  </style>
+  <defs>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#059669"/>
+    </marker>
+    <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/>
+    </marker>
+    <marker id="ax" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <!-- 背景：固定白底，深色主题下也清晰 -->
+  <rect x="0.5" y="0.5" width="959" height="1009" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+
+  <!-- 标题 -->
+  <text class="t" x="480" y="40" font-size="22" font-weight="700" text-anchor="middle">mmap 系统调用生命周期</text>
+  <text class="sub" x="480" y="64" text-anchor="middle" font-size="13">主线从上到下；④ 中的调用在映射存续期间可以多次、按任意顺序调用</text>
+
+  <!-- 左侧时间轴 -->
+  <line x1="140" y1="100" x2="140" y2="900" stroke="#cbd5e1" stroke-width="2"/>
+  <circle cx="140" cy="125" r="5" fill="#2563eb"/>
+  <circle cx="140" cy="240" r="5" fill="#2563eb"/>
+  <circle cx="140" cy="345" r="5" fill="#2563eb"/>
+  <circle cx="140" cy="610" r="5" fill="#059669"/>
+  <circle cx="140" cy="875" r="5" fill="#2563eb"/>
+  <text class="phase" x="24" y="130">① 获取 fd</text>
+  <text class="phase" x="24" y="245">② 设置大小</text>
+  <text class="phase" x="24" y="350">③ 建立映射</text>
+  <text class="phase" x="24" y="615">④ 使用映射</text>
+  <text class="phase" x="24" y="880">⑤ 释放资源</text>
+
+  <!-- ① 获取 fd：三种来源 -->
+  <rect class="main" x="160" y="90" width="240" height="70" rx="8"/>
+  <text class="mono" x="280" y="120" font-size="12" text-anchor="middle">open(path, O_CREAT|O_RDWR)</text>
+  <text class="sub" x="280" y="142" text-anchor="middle">文件映射</text>
+
+  <rect class="main" x="420" y="90" width="240" height="70" rx="8"/>
+  <text class="mono" x="540" y="120" font-size="12" text-anchor="middle">shm_open(name, O_CREAT|O_RDWR)</text>
+  <text class="sub" x="540" y="142" text-anchor="middle">POSIX 共享内存（无亲缘关系的进程）</text>
+
+  <rect class="main" x="680" y="90" width="240" height="70" rx="8" stroke-dasharray="6 4"/>
+  <text class="mono" x="800" y="120" font-size="12" text-anchor="middle">fd = -1  +  MAP_ANON</text>
+  <text class="sub" x="800" y="142" text-anchor="middle">匿名映射：不关联文件</text>
+
+  <line class="flow" x1="280" y1="160" x2="280" y2="206" marker-end="url(#ab)"/>
+  <line class="flow" x1="540" y1="160" x2="540" y2="206" marker-end="url(#ab)"/>
+  <line class="skip" x1="800" y1="160" x2="800" y2="306" marker-end="url(#ax)"/>
+  <text class="sub" x="810" y="245">跳过 ftruncate</text>
+
+  <!-- ② ftruncate -->
+  <rect class="main" x="160" y="210" width="500" height="62" rx="8"/>
+  <text class="mono" x="410" y="236" font-size="14" text-anchor="middle">ftruncate(fd, size)</text>
+  <text class="sub" x="410" y="258" text-anchor="middle">扩展部分填 0；不做这步就访问文件末尾之后的页 → <tspan class="err">SIGBUS</tspan></text>
+
+  <line class="flow" x1="410" y1="272" x2="410" y2="306" marker-end="url(#ab)"/>
+
+  <!-- ③ mmap -->
+  <rect class="main" x="160" y="310" width="760" height="70" rx="8" stroke-width="2"/>
+  <text class="mono" x="540" y="338" font-size="15" font-weight="700" text-anchor="middle">addr = mmap(NULL, size, prot, flags, fd, 0)</text>
+  <text class="sub" x="540" y="362" text-anchor="middle">prot: PROT_READ | PROT_WRITE    flags: MAP_SHARED / MAP_PRIVATE（匿名再加 MAP_ANON）</text>
+
+  <line class="flow" x1="540" y1="380" x2="540" y2="416" marker-end="url(#ab)"/>
+  <text class="sub" x="556" y="403">映射建立后即可 close(fd)，映射仍然有效</text>
+
+  <!-- ④ 使用期容器 -->
+  <rect x="160" y="420" width="760" height="382" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-dasharray="5 4"/>
+  <text class="sub" x="176" y="443" font-size="12.5">映射存续期间（作用范围都是 addr 起、按页对齐的一段区域）</text>
+
+  <!-- 中心：访问 -->
+  <rect class="core" x="430" y="540" width="220" height="80" rx="10"/>
+  <text class="mono" x="540" y="568" font-size="16" font-weight="700" text-anchor="middle">读写 addr[i]</text>
+  <text class="sub" x="540" y="590" text-anchor="middle">首次访问触发缺页</text>
+  <text class="sub" x="540" y="607" text-anchor="middle">→ 页载入 page cache</text>
+
+  <!-- 左列：控制类 -->
+  <rect class="ctrl" x="180" y="460" width="220" height="62" rx="8"/>
+  <text class="mono" x="290" y="482" font-size="13" text-anchor="middle">madvise / posix_madvise</text>
+  <text class="sub" x="290" y="500" text-anchor="middle">访问提示，优化预读 / 回收</text>
+  <text class="sub" x="290" y="515" text-anchor="middle" style="font-size:11px">SEQUENTIAL · RANDOM · WILLNEED</text>
+
+  <rect class="ctrl" x="180" y="550" width="220" height="62" rx="8"/>
+  <text class="mono" x="290" y="572" font-size="13" text-anchor="middle">mprotect</text>
+  <text class="sub" x="290" y="590" text-anchor="middle">运行时修改页权限</text>
+  <text class="sub" x="290" y="605" text-anchor="middle">违规访问 → <tspan class="err">SIGSEGV</tspan></text>
+
+  <rect class="ctrl" x="180" y="640" width="220" height="62" rx="8"/>
+  <text class="mono" x="290" y="662" font-size="13" text-anchor="middle">mincore</text>
+  <text class="sub" x="290" y="680" text-anchor="middle">查询哪些页已在物理内存</text>
+  <text class="sub" x="290" y="695" text-anchor="middle">（观察缺页 / 预读效果）</text>
+
+  <!-- 右列：持久化 + 锁定 -->
+  <rect class="persist" x="680" y="460" width="220" height="62" rx="8"/>
+  <text class="mono" x="790" y="482" font-size="13" text-anchor="middle">msync</text>
+  <text class="sub" x="790" y="500" text-anchor="middle">把脏页写回磁盘文件</text>
+  <text class="sub" x="790" y="515" text-anchor="middle" style="font-size:11px">MS_SYNC 阻塞 · MS_ASYNC 异步</text>
+
+  <rect class="ctrl" x="680" y="550" width="220" height="62" rx="8"/>
+  <text class="mono" x="790" y="572" font-size="13" text-anchor="middle">mlock / munlock</text>
+  <text class="sub" x="790" y="590" text-anchor="middle">锁定物理页，不被换出</text>
+  <text class="sub" x="790" y="605" text-anchor="middle">受 RLIMIT_MEMLOCK 限制</text>
+
+  <rect class="ctrl" x="680" y="640" width="220" height="62" rx="8"/>
+  <text class="mono" x="790" y="662" font-size="13" text-anchor="middle">mlockall / munlockall</text>
+  <text class="sub" x="790" y="680" text-anchor="middle">锁定整个进程的内存</text>
+  <text class="sub" x="790" y="695" text-anchor="middle">实时系统消除缺页抖动</text>
+
+  <!-- 连线：控制类 → 中心 -->
+  <line class="link" x1="400" y1="491" x2="432" y2="556" marker-end="url(#ag)"/>
+  <line class="link" x1="400" y1="581" x2="428" y2="581" marker-end="url(#ag)"/>
+  <line class="link" x1="400" y1="671" x2="432" y2="606" marker-end="url(#ag)"/>
+  <line class="linko" x1="680" y1="491" x2="648" y2="556" marker-end="url(#ao)"/>
+  <line class="link" x1="680" y1="581" x2="652" y2="581" marker-end="url(#ag)"/>
+  <line class="link" x1="680" y1="671" x2="648" y2="606" marker-end="url(#ag)"/>
+
+  <!-- 扩容回路 -->
+  <rect class="persist" x="180" y="720" width="720" height="48" rx="8"/>
+  <text class="t" x="200" y="740" font-size="13"><tspan font-size="16" fill="#ea580c">↻ </tspan>空间不够：<tspan class="mono">ftruncate(扩大)</tspan> → <tspan class="mono">munmap + mmap</tspan> 重新映射</text>
+  <text class="sub" x="222" y="759">Linux 可用 mremap 原地扩大；macOS 只能重新映射，返回地址可能变化，旧指针全部失效</text>
+  <line class="linko" x1="540" y1="720" x2="540" y2="624" marker-end="url(#ao)"/>
+
+  <text class="sub" x="180" y="790">其他：minherit(addr, len, inherit) —— 控制 fork 后子进程是否继承该映射（BSD / macOS）</text>
+
+  <line class="flow" x1="540" y1="802" x2="540" y2="836" marker-end="url(#ab)"/>
+
+  <!-- ⑤ 释放 -->
+  <rect class="main" x="160" y="840" width="230" height="70" rx="8"/>
+  <text class="mono" x="275" y="868" font-size="13" text-anchor="middle">munmap(addr, size)</text>
+  <text class="sub" x="275" y="890" text-anchor="middle">解除映射；不保证脏页已落盘</text>
+
+  <rect class="main" x="425" y="840" width="230" height="70" rx="8"/>
+  <text class="mono" x="540" y="868" font-size="13" text-anchor="middle">close(fd)</text>
+  <text class="sub" x="540" y="890" text-anchor="middle">③ 之后已关闭则跳过</text>
+
+  <rect class="main" x="690" y="840" width="230" height="70" rx="8" stroke-dasharray="6 4"/>
+  <text class="mono" x="805" y="868" font-size="13" text-anchor="middle">shm_unlink(name)</text>
+  <text class="sub" x="805" y="890" text-anchor="middle">仅共享内存：删除名字</text>
+
+  <line class="flow" x1="390" y1="875" x2="421" y2="875" marker-end="url(#ab)"/>
+  <line class="flow" x1="655" y1="875" x2="686" y2="875" marker-end="url(#ab)"/>
+
+  <!-- 图例 -->
+  <g transform="translate(160, 950)">
+    <rect class="main" x="0" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="24" y="1">生命周期主线</text>
+    <rect class="ctrl" x="130" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="154" y="1">访问控制 / 内存驻留</text>
+    <rect class="persist" x="290" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="314" y="1">持久化 / 扩容</text>
+    <rect x="420" y="-12" width="16" height="16" rx="3" fill="#ffffff" stroke="#64748b" stroke-dasharray="4 3"/>
+    <text class="sub" x="444" y="1">特定场景才需要</text>
+    <text class="sub" x="560" y="1"><tspan class="err">红字</tspan> = 用错时收到的信号</text>
+  </g>
+</svg>

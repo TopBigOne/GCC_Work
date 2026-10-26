@@ -1,0 +1,178 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 880" width="960" height="880">
+  <title>SimpleKVStore：文件布局、写入顺序与扩容</title>
+  <style>
+    .t      { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #0f172a; }
+    .mono   { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; fill: #0f172a; font-size: 13px; }
+    .cell   { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; fill: #1e293b; font-size: 10.5px; }
+    .sub    { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #475569; }
+    .body   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 13px; fill: #334155; }
+    .sec    { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 15px; font-weight: 700; fill: #0f172a; }
+    .lbl    { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; font-weight: 600; }
+    .main   { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.5; }
+    .ctrl   { fill: #ecfdf5; stroke: #059669; stroke-width: 1.5; }
+    .persist{ fill: #fff7ed; stroke: #ea580c; stroke-width: 1.5; }
+    .errbox { fill: #fef2f2; stroke: #dc2626; stroke-width: 1.5; }
+    .idle   { fill: #f8fafc; stroke: #94a3b8; stroke-width: 1.2; }
+    .c      { stroke: #94a3b8; stroke-width: 0.8; }
+    .flow   { stroke: #2563eb; stroke-width: 2; fill: none; }
+    .copy   { stroke: #ea580c; stroke-width: 2; fill: none; }
+  </style>
+  <defs>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#059669"/></marker>
+    <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/></marker>
+    <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="#cbd5e1" stroke-width="2"/></pattern>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="959" height="879" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+
+  <text class="t" x="480" y="38" font-size="22" font-weight="700" text-anchor="middle">SimpleKVStore：一个用 mmap 持久化的追加写 KV 存储</text>
+  <text class="sub" x="480" y="62" text-anchor="middle" style="font-size:13px">写内存 = 写文件；只追加不原地修改；文件头里的 data_end 是"提交点"</text>
+
+  <!-- ========== ① 文件布局 ========== -->
+  <text class="sec" x="30" y="96">① 文件字节布局（VERSION 2，demo 写完后的样子）</text>
+
+  <!-- 偏移刻度 -->
+  <line x1="30" y1="124" x2="30" y2="140" stroke="#64748b"/>
+  <text class="sub" x="34" y="122">0</text>
+  <line x1="230" y1="124" x2="230" y2="140" stroke="#2563eb" stroke-width="1.5"/>
+  <text class="lbl" x="236" y="122" fill="#2563eb">data_offset = 20</text>
+  <line x1="744" y1="112" x2="744" y2="140" stroke="#059669" stroke-width="2" marker-end="url(#ag)"/>
+  <text class="lbl" x="738" y="122" fill="#059669" text-anchor="end">data_end（下次写这里）</text>
+  <line x1="929" y1="124" x2="929" y2="140" stroke="#64748b"/>
+  <text class="sub" x="924" y="122" text-anchor="end">容量 = 文件大小</text>
+
+  <!-- Header 5 格 -->
+  <rect class="main" x="30" y="142" width="200" height="50"/>
+  <line class="c" x1="70" y1="142" x2="70" y2="192"/><line class="c" x1="110" y1="142" x2="110" y2="192"/>
+  <line class="c" x1="150" y1="142" x2="150" y2="192"/><line class="c" x1="190" y1="142" x2="190" y2="192"/>
+  <text class="cell" x="50" y="162" text-anchor="middle" style="font-size:9.5px">magic</text><text class="cell" x="50" y="181" text-anchor="middle">MSVK</text>
+  <text class="cell" x="90" y="162" text-anchor="middle" style="font-size:9.5px">ver</text><text class="cell" x="90" y="181" text-anchor="middle">2</text>
+  <text class="cell" x="130" y="162" text-anchor="middle" style="font-size:9.5px">count</text><text class="cell" x="130" y="181" text-anchor="middle">7</text>
+  <text class="cell" x="170" y="162" text-anchor="middle" style="font-size:9.5px">d_off</text><text class="cell" x="170" y="181" text-anchor="middle">20</text>
+  <text class="cell" x="210" y="162" text-anchor="middle" style="font-size:9.5px">d_end</text><text class="cell" x="210" y="181" text-anchor="middle">●</text>
+
+  <!-- rec name=Alice -->
+  <rect class="ctrl" x="230" y="142" width="136" height="50"/>
+  <line class="c" x1="256" y1="142" x2="256" y2="192"/><line class="c" x1="282" y1="142" x2="282" y2="192"/><line class="c" x1="322" y1="142" x2="322" y2="192"/>
+  <text class="cell" x="243" y="171" text-anchor="middle">4</text><text class="cell" x="269" y="171" text-anchor="middle">5</text>
+  <text class="cell" x="302" y="171" text-anchor="middle">name</text><text class="cell" x="344" y="171" text-anchor="middle">Alice</text>
+
+  <!-- 省略 -->
+  <rect class="idle" x="366" y="142" width="44" height="50"/>
+  <text class="cell" x="388" y="171" text-anchor="middle">…</text>
+
+  <!-- rec name=Bob -->
+  <rect class="ctrl" x="410" y="142" width="124" height="50"/>
+  <line class="c" x1="436" y1="142" x2="436" y2="192"/><line class="c" x1="462" y1="142" x2="462" y2="192"/><line class="c" x1="502" y1="142" x2="502" y2="192"/>
+  <text class="cell" x="423" y="171" text-anchor="middle">4</text><text class="cell" x="449" y="171" text-anchor="middle">3</text>
+  <text class="cell" x="482" y="171" text-anchor="middle">name</text><text class="cell" x="518" y="171" text-anchor="middle">Bob</text>
+
+  <!-- tombstone level -->
+  <rect class="errbox" x="534" y="142" width="118" height="50"/>
+  <line class="c" x1="560" y1="142" x2="560" y2="192"/><line class="c" x1="608" y1="142" x2="608" y2="192"/>
+  <text class="cell" x="547" y="171" text-anchor="middle">5</text><text class="cell" x="584" y="171" text-anchor="middle" fill="#dc2626">FFFF…</text>
+  <text class="cell" x="630" y="171" text-anchor="middle">level</text>
+
+  <!-- rec note="" -->
+  <rect class="ctrl" x="652" y="142" width="92" height="50"/>
+  <line class="c" x1="678" y1="142" x2="678" y2="192"/><line class="c" x1="704" y1="142" x2="704" y2="192"/>
+  <text class="cell" x="665" y="171" text-anchor="middle">4</text><text class="cell" x="691" y="171" text-anchor="middle">0</text>
+  <text class="cell" x="724" y="171" text-anchor="middle">note</text>
+
+  <!-- 预留区 -->
+  <rect x="744" y="142" width="185" height="50" fill="url(#hatch)" stroke="#94a3b8"/>
+  <rect x="784" y="157" width="106" height="20" rx="4" fill="#ffffff"/>
+  <text class="sub" x="837" y="171" text-anchor="middle">预留区：全是 0</text>
+
+  <!-- 下方说明 -->
+  <text class="sub" x="130" y="212" text-anchor="middle">Header（20 B）</text>
+  <text class="sub" x="298" y="212" text-anchor="middle">put(name, Alice)</text>
+  <text class="sub" x="472" y="212" text-anchor="middle">put(name, Bob)</text>
+  <text class="sub" x="593" y="212" text-anchor="middle" fill="#dc2626">remove(level)</text>
+  <text class="sub" x="698" y="212" text-anchor="middle">put(note, "")</text>
+  <text class="sub" x="472" y="228" text-anchor="middle">覆盖 = 再追加一条</text>
+  <text class="sub" x="593" y="228" text-anchor="middle" fill="#dc2626">墓碑，无 value</text>
+  <text class="sub" x="698" y="228" text-anchor="middle">空值合法</text>
+
+  <rect x="30" y="242" width="899" height="50" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text class="body" x="46" y="263">每条记录 = <tspan class="mono" style="font-size:12px">key_len(4B) | val_len(4B) | key | value</tspan>；墓碑的 val_len = 0xFFFFFFFF，后面没有 value 字节</text>
+  <text class="body" x="46" y="283">get / keys 只扫描 [data_offset, data_end)：同一个 key 后写的胜出，遇到墓碑算删除，预留区的 0 永远不会被当成记录</text>
+
+  <!-- ========== ② put 顺序 ========== -->
+  <text class="sec" x="30" y="326">② put(key, value) 的执行顺序</text>
+
+  <rect class="main" x="30" y="340" width="490" height="50" rx="8"/>
+  <text class="mono" x="46" y="361">① new_end = data_end + entry_size</text>
+  <text class="sub" x="46" y="380">entry_size = 8 + key 长度 + value 长度</text>
+
+  <rect class="persist" x="30" y="404" width="490" height="50" rx="8"/>
+  <text class="mono" x="46" y="425">② ensure_capacity(new_end)</text>
+  <text class="sub" x="46" y="444">够用就跳过；不够：容量 ×2 → ftruncate → 重新 mmap（见下方扩容）</text>
+
+  <rect class="main" x="30" y="468" width="490" height="50" rx="8"/>
+  <text class="mono" x="46" y="489">③ memcpy 记录到 data_end 处</text>
+  <text class="sub" x="46" y="508">写映射内存 = 写 page cache，此时还没落盘</text>
+
+  <rect class="persist" x="30" y="532" width="490" height="50" rx="8"/>
+  <text class="mono" x="46" y="553">④ sync_range(start, new_end)</text>
+  <text class="sub" x="46" y="572">只 msync 记录所在的页（起点向下取整到页边界）</text>
+
+  <rect class="ctrl" x="30" y="596" width="490" height="50" rx="8" stroke-width="2"/>
+  <text class="mono" x="46" y="617">⑤ count++，data_end = new_end</text>
+  <text class="sub" x="46" y="636">提交点：从这一刻起，读者才"看得见"这条记录</text>
+
+  <rect class="persist" x="30" y="660" width="490" height="50" rx="8"/>
+  <text class="mono" x="46" y="681">⑥ sync_range(0, 20)</text>
+  <text class="sub" x="46" y="700">msync 文件头所在的页</text>
+
+  <line class="flow" x1="275" y1="390" x2="275" y2="401" marker-end="url(#ab)"/>
+  <line class="flow" x1="275" y1="454" x2="275" y2="465" marker-end="url(#ab)"/>
+  <line class="flow" x1="275" y1="518" x2="275" y2="529" marker-end="url(#ab)"/>
+  <line class="flow" x1="275" y1="582" x2="275" y2="593" marker-end="url(#ab)"/>
+  <line class="flow" x1="275" y1="646" x2="275" y2="657" marker-end="url(#ab)"/>
+
+  <!-- 崩溃一致性 -->
+  <text class="sec" x="550" y="356">为什么是这个顺序？（崩溃一致性）</text>
+
+  <rect class="ctrl" x="550" y="370" width="379" height="78" rx="8"/>
+  <text class="body" x="566" y="393" font-weight="700">在 ④ 完成前崩溃（记录只写了一半）</text>
+  <text class="body" x="566" y="415">data_end 还是旧值，半截记录在它后面</text>
+  <text class="body" x="566" y="436">→ 重启后根本看不到它，文件仍然一致 ✓</text>
+
+  <rect class="ctrl" x="550" y="460" width="379" height="78" rx="8"/>
+  <text class="body" x="566" y="483" font-weight="700">在 ④ 和 ⑥ 之间崩溃</text>
+  <text class="body" x="566" y="505">记录已落盘，但新的 data_end 没落盘</text>
+  <text class="body" x="566" y="526">→ 这次 put 丢了，文件仍然一致 ✓</text>
+
+  <rect class="errbox" x="550" y="550" width="379" height="78" rx="8"/>
+  <text class="body" x="566" y="573" font-weight="700" fill="#dc2626">反过来：先改 data_end，再写记录</text>
+  <text class="body" x="566" y="595">文件头已经指向一条还没写完的记录</text>
+  <text class="body" x="566" y="616">→ 重启后把半截数据当记录解析 ✗</text>
+
+  <text class="sub" x="552" y="660">注：进程崩溃时 page cache 由内核保管，数据不会丢；</text>
+  <text class="sub" x="552" y="679">msync 防的是断电和内核崩溃。</text>
+
+  <!-- ========== ③ 扩容 ========== -->
+  <text class="sec" x="30" y="748">③ 扩容：文件变大后必须重新映射</text>
+
+  <rect class="main" x="30" y="764" width="250" height="40" rx="6"/>
+  <text class="body" x="155" y="789" text-anchor="middle">旧映射：地址 A，长度 C</text>
+
+  <line class="copy" x1="282" y1="784" x2="414" y2="784" marker-end="url(#ao)"/>
+  <text class="sub" x="348" y="776" text-anchor="middle" fill="#ea580c">ftruncate</text>
+  <text class="sub" x="348" y="800" text-anchor="middle" fill="#ea580c">+ 重新 mmap</text>
+
+  <rect class="ctrl" x="418" y="764" width="511" height="40" rx="6"/>
+  <text class="body" x="673" y="789" text-anchor="middle">新映射：地址 B（可能 ≠ A），长度 max(2C, 需要) 向上取整到页</text>
+
+  <text class="body" x="30" y="830">⚠ 旧地址 A 已被 munmap：扩容前拿到的指针（header()、string_view 等）全部失效，扩容后必须重新获取</text>
+
+  <g transform="translate(30, 862)">
+    <rect class="main" x="0" y="-12" width="16" height="16" rx="3"/><text class="sub" x="24" y="1">文件头 / 主流程</text>
+    <rect class="ctrl" x="140" y="-12" width="16" height="16" rx="3"/><text class="sub" x="164" y="1">有效记录 / 安全</text>
+    <rect class="errbox" x="280" y="-12" width="16" height="16" rx="3"/><text class="sub" x="304" y="1">墓碑 / 错误做法</text>
+    <rect class="persist" x="420" y="-12" width="16" height="16" rx="3"/><text class="sub" x="444" y="1">落盘 / 扩容</text>
+    <rect x="540" y="-12" width="16" height="16" rx="3" fill="url(#hatch)" stroke="#94a3b8"/><text class="sub" x="564" y="1">预分配但未使用</text>
+  </g>
+</svg>

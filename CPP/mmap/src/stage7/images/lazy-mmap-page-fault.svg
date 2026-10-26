@@ -1,0 +1,173 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 840" width="960" height="840">
+  <title>mmap 惰性分配与缺页处理</title>
+  <style>
+    .t      { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #0f172a; }
+    .mono   { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; fill: #0f172a; }
+    .sub    { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #475569; }
+    .fn     { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 11px; fill: #475569; }
+    .band   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 14px; font-weight: 600; fill: #334155; }
+    .err    { fill: #dc2626; font-weight: 600; }
+    .main   { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.5; }
+    .ctrl   { fill: #ecfdf5; stroke: #059669; stroke-width: 1.5; }
+    .key    { fill: #fff7ed; stroke: #ea580c; stroke-width: 1.5; }
+    .flow   { stroke: #2563eb; stroke-width: 2; fill: none; }
+    .flowg  { stroke: #059669; stroke-width: 2; fill: none; }
+    .look   { stroke: #64748b; stroke-width: 1.5; fill: none; stroke-dasharray: 5 4; }
+  </style>
+  <defs>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#059669"/>
+    </marker>
+    <marker id="ax" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="959" height="839" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+
+  <text class="t" x="480" y="40" font-size="22" font-weight="700" text-anchor="middle">mmap 是惰性的：先登记 VMA，访问时才分配物理页</text>
+  <text class="sub" x="480" y="64" text-anchor="middle" style="font-size:13px">左：调用 mmap() 时内核做了什么　中：第一次访问时的缺页处理　右：其他调用如何修改已有 VMA</text>
+
+  <!-- ===== 用户态 ===== -->
+  <rect x="16" y="82" width="928" height="92" rx="10" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text class="band" x="30" y="101">用户态</text>
+
+  <rect class="main" x="50" y="110" width="260" height="52" rx="8" stroke-width="2"/>
+  <text class="mono" x="180" y="131" font-size="12" font-weight="700" text-anchor="middle">addr = mmap(len, prot, flags)</text>
+  <text class="sub" x="180" y="151" text-anchor="middle">立即返回，几乎不耗时</text>
+
+  <rect class="main" x="360" y="110" width="260" height="52" rx="8" stroke-width="2"/>
+  <text class="mono" x="490" y="131" font-size="14" font-weight="700" text-anchor="middle">addr[0] = 1</text>
+  <text class="sub" x="490" y="151" text-anchor="middle">第一次读写这一页</text>
+
+  <rect class="ctrl" x="670" y="110" width="250" height="52" rx="8" stroke-width="2"/>
+  <text class="mono" x="795" y="131" font-size="12" font-weight="700" text-anchor="middle">mprotect / munmap / mlock</text>
+  <text class="sub" x="795" y="151" text-anchor="middle">修改 / 删除已有的 VMA</text>
+
+  <!-- ===== 内核 ===== -->
+  <rect x="16" y="188" width="928" height="564" rx="10" fill="#f1f5f9" stroke="#e2e8f0"/>
+  <text class="band" x="30" y="207">内核</text>
+
+  <!-- 列 1：mmap() 路径 -->
+  <line class="flow" x1="180" y1="162" x2="180" y2="220" marker-end="url(#ab)"/>
+
+  <rect class="main" x="50" y="224" width="260" height="56" rx="8"/>
+  <text class="mono" x="180" y="246" font-size="13" text-anchor="middle">do_mmap()</text>
+  <text class="sub" x="180" y="268" text-anchor="middle">校验参数、找一段空闲虚拟地址</text>
+
+  <line class="flow" x1="180" y1="280" x2="180" y2="296" marker-end="url(#ab)"/>
+
+  <rect class="main" x="50" y="300" width="260" height="72" rx="8"/>
+  <text class="t" x="180" y="322" font-size="13" font-weight="600" text-anchor="middle">新建 vm_area_struct（VMA）</text>
+  <text class="fn" x="180" y="342" text-anchor="middle">vm_start / vm_end / vm_flags</text>
+  <text class="fn" x="180" y="360" text-anchor="middle">vm_file / vm_ops / vm_pgoff</text>
+
+  <line class="flow" x1="180" y1="372" x2="180" y2="388" marker-end="url(#ab)"/>
+
+  <rect class="main" x="50" y="392" width="260" height="56" rx="8"/>
+  <text class="t" x="180" y="414" font-size="13" font-weight="600" text-anchor="middle">插入 mm_struct 的 maple tree</text>
+  <text class="sub" x="180" y="436" text-anchor="middle">之后按地址 O(log n) 查找</text>
+
+  <line class="flow" x1="180" y1="448" x2="180" y2="460" marker-end="url(#ab)"/>
+
+  <rect class="key" x="50" y="464" width="260" height="68" rx="8" stroke-width="2"/>
+  <text class="t" x="180" y="486" font-size="14" font-weight="700" text-anchor="middle" fill="#c2410c">物理页：0 个</text>
+  <text class="sub" x="180" y="505" text-anchor="middle">页表：还是空的</text>
+  <text class="sub" x="180" y="523" text-anchor="middle">→ 直接把 addr 返回给用户</text>
+
+  <!-- 列 2：缺页路径 -->
+  <line class="flow" x1="490" y1="162" x2="490" y2="220" marker-end="url(#ab)"/>
+
+  <rect class="main" x="360" y="224" width="260" height="56" rx="8"/>
+  <text class="t" x="490" y="246" font-size="13" font-weight="600" text-anchor="middle">缺页异常（page fault）</text>
+  <text class="sub" x="490" y="268" text-anchor="middle">MMU 查页表：这一页没有 PTE</text>
+
+  <line class="flow" x1="490" y1="280" x2="490" y2="296" marker-end="url(#ab)"/>
+
+  <rect class="main" x="360" y="300" width="260" height="72" rx="8"/>
+  <text class="mono" x="490" y="322" font-size="13" text-anchor="middle">find_vma(mm, addr)</text>
+  <text class="sub" x="490" y="342" text-anchor="middle">在 maple tree 里找所属的 VMA</text>
+  <text class="sub" x="490" y="360" text-anchor="middle"><tspan class="err">找不到 / 权限不符 → SIGSEGV</tspan></text>
+
+  <line class="look" x1="310" y1="420" x2="356" y2="352" marker-end="url(#ax)"/>
+
+  <line class="flow" x1="490" y1="372" x2="490" y2="388" marker-end="url(#ab)"/>
+
+  <rect class="main" x="360" y="392" width="260" height="56" rx="8"/>
+  <text class="mono" x="490" y="414" font-size="13" text-anchor="middle">handle_mm_fault()</text>
+  <text class="sub" x="490" y="436" text-anchor="middle">按 VMA 类型和访问方式分派</text>
+
+  <!-- 分派总线 -->
+  <path class="flow" d="M490,448 L490,548"/>
+  <path class="flow" d="M152,548 L822,548"/>
+  <line class="flow" x1="152" y1="548" x2="152" y2="564" marker-end="url(#ab)"/>
+  <line class="flow" x1="375" y1="548" x2="375" y2="564" marker-end="url(#ab)"/>
+  <line class="flow" x1="598" y1="548" x2="598" y2="564" marker-end="url(#ab)"/>
+  <line class="flow" x1="822" y1="548" x2="822" y2="564" marker-end="url(#ab)"/>
+
+  <!-- 列 3：修改已有 VMA -->
+  <line class="flowg" x1="795" y1="162" x2="795" y2="212" marker-end="url(#ag)"/>
+  <rect x="660" y="216" width="270" height="256" rx="10" fill="none" stroke="#059669" stroke-dasharray="5 4"/>
+
+  <rect class="ctrl" x="675" y="228" width="240" height="68" rx="8"/>
+  <text class="mono" x="795" y="248" font-size="12" text-anchor="middle">mprotect(addr, len, prot)</text>
+  <text class="sub" x="795" y="267" text-anchor="middle">改 vm_flags 和已有 PTE 的权限</text>
+  <text class="sub" x="795" y="285" text-anchor="middle">只改一部分 → VMA 拆成 2~3 个</text>
+
+  <rect class="ctrl" x="675" y="310" width="240" height="68" rx="8"/>
+  <text class="mono" x="795" y="330" font-size="12" text-anchor="middle">munmap(addr, len)</text>
+  <text class="sub" x="795" y="349" text-anchor="middle">删除 VMA、清掉对应 PTE</text>
+  <text class="sub" x="795" y="367" text-anchor="middle">物理页没人引用时才真正释放</text>
+
+  <rect class="ctrl" x="675" y="392" width="240" height="68" rx="8"/>
+  <text class="mono" x="795" y="412" font-size="12" text-anchor="middle">mlock(addr, len)</text>
+  <text class="sub" x="795" y="431" text-anchor="middle">立刻对每一页触发缺页</text>
+  <text class="sub" x="795" y="449" text-anchor="middle">标记 VM_LOCKED，不会被换出</text>
+
+  <!-- 四种缺页处理 -->
+  <rect class="main" x="50" y="568" width="205" height="78" rx="8"/>
+  <text class="t" x="152" y="590" font-size="13" font-weight="600" text-anchor="middle">匿名页</text>
+  <text class="mono" x="152" y="610" font-size="12" text-anchor="middle">do_anonymous_page()</text>
+  <text class="sub" x="152" y="630" text-anchor="middle">分配一页清零的物理内存</text>
+
+  <rect class="main" x="273" y="568" width="205" height="78" rx="8"/>
+  <text class="t" x="375" y="590" font-size="13" font-weight="600" text-anchor="middle">文件页</text>
+  <text class="mono" x="375" y="610" font-size="12" text-anchor="middle">do_read_fault()</text>
+  <text class="sub" x="375" y="630" text-anchor="middle">从 page cache 取，没有就读盘</text>
+
+  <rect class="main" x="496" y="568" width="205" height="78" rx="8"/>
+  <text class="t" x="598" y="590" font-size="13" font-weight="600" text-anchor="middle">写时复制（COW）</text>
+  <text class="mono" x="598" y="610" font-size="12" text-anchor="middle">do_wp_page()</text>
+  <text class="sub" x="598" y="630" text-anchor="middle">写 MAP_PRIVATE 页：复制一份</text>
+
+  <rect class="main" x="719" y="568" width="205" height="78" rx="8"/>
+  <text class="t" x="822" y="590" font-size="13" font-weight="600" text-anchor="middle">被换出的页</text>
+  <text class="mono" x="822" y="610" font-size="12" text-anchor="middle">do_swap_page()</text>
+  <text class="sub" x="822" y="630" text-anchor="middle">从 swap 分区读回</text>
+
+  <!-- 汇总到填 PTE -->
+  <path class="flow" d="M152,646 L152,664 M375,646 L375,664 M598,646 L598,664 M822,646 L822,664 M152,664 L822,664"/>
+  <line class="flow" x1="490" y1="664" x2="490" y2="680" marker-end="url(#ab)"/>
+
+  <rect class="key" x="250" y="684" width="480" height="56" rx="8" stroke-width="2"/>
+  <text class="t" x="490" y="706" font-size="14" font-weight="700" text-anchor="middle">填写 PTE：虚拟页 → 物理页框</text>
+  <text class="sub" x="490" y="727" text-anchor="middle">CPU 重新执行刚才那条指令，这次访问成功</text>
+
+  <text class="sub" x="480" y="776" text-anchor="middle">之后再访问同一页不再缺页：MMU 查页表直接命中，内核完全不参与。mmap 返回快，代价被摊到每页的第一次访问上</text>
+
+  <!-- 图例 -->
+  <g transform="translate(150, 812)">
+    <rect class="main" x="0" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="24" y="1">内核处理流程</text>
+    <rect class="ctrl" x="124" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="148" y="1">修改已有 VMA 的调用</text>
+    <rect class="key" x="286" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="310" y="1">关键结论</text>
+    <line class="look" x1="390" y1="-4" x2="420" y2="-4"/>
+    <text class="sub" x="428" y="1">查找关系</text>
+    <text class="sub" x="510" y="1"><tspan class="err">红字</tspan> = 进程会收到的信号</text>
+  </g>
+</svg>

@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620" width="960" height="620">
+  <title>SIGBUS 的页边界与 sigsetjmp/siglongjmp 恢复流程</title>
+  <style>
+    .t     { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #0f172a; }
+    .mono  { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; fill: #0f172a; }
+    .sub   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #475569; }
+    .hd    { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 15px; font-weight: 700; fill: #334155; }
+    .err   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #dc2626; font-weight: 600; }
+    .main  { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.5; }
+    .ctrl  { fill: #ecfdf5; stroke: #059669; stroke-width: 1.5; }
+    .bad   { fill: #fef2f2; stroke: #dc2626; stroke-width: 1.5; }
+    .zero  { fill: #f8fafc; stroke: #94a3b8; stroke-width: 1.2; }
+    .lb    { stroke: #2563eb; stroke-width: 1.8; fill: none; }
+    .lr    { stroke: #dc2626; stroke-width: 1.8; fill: none; }
+    .lg    { stroke: #059669; stroke-width: 1.8; fill: none; }
+  </style>
+  <defs>
+    <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker>
+    <marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#dc2626"/></marker>
+    <marker id="gr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#059669"/></marker>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="959" height="619" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+  <text class="t" x="480" y="38" text-anchor="middle" style="font-size:22px;font-weight:700">SIGBUS 从哪来，程序又是怎么“活下来”的</text>
+  <text class="sub" x="480" y="62" text-anchor="middle" style="font-size:13px">对应 demo_ftruncate_sigbus：文件只有 16 字节，却映射了 2 页（macOS arm64 页大小 16 KB）</text>
+
+  <!-- 上半：页边界 -->
+  <text class="hd" x="60" y="98">① 映射 2 页，文件只覆盖第 0 页的开头</text>
+
+  <text class="sub" x="72" y="126" style="fill:#2563eb">16 B 文件数据</text>
+  <line class="lb" x1="74" y1="131" x2="74" y2="146" marker-end="url(#b)"/>
+
+  <rect class="main" x="60" y="150" width="28" height="56"/>
+  <rect class="zero" x="88" y="150" width="392" height="56"/>
+  <text class="sub" x="284" y="174" text-anchor="middle">第 0 页剩余部分：可以访问，读到 0</text>
+  <text class="sub" x="284" y="193" text-anchor="middle">写入不会进入文件（文件只有 16 字节）</text>
+  <rect class="bad" x="480" y="150" width="420" height="56"/>
+  <text class="err" x="690" y="174" text-anchor="middle">第 1 页：整页都在文件末尾之后</text>
+  <text class="sub" x="690" y="193" text-anchor="middle">没有任何文件数据能映射进来 → 一碰就 SIGBUS</text>
+
+  <text class="mono" x="60" y="224" style="font-size:11px;fill:#64748b">0</text>
+  <text class="mono" x="88" y="224" style="font-size:11px;fill:#64748b">16</text>
+  <text class="mono" x="480" y="224" text-anchor="middle" style="font-size:11px;fill:#64748b">16384</text>
+  <text class="mono" x="900" y="224" text-anchor="end" style="font-size:11px;fill:#64748b">32768</text>
+
+  <text class="sub" x="60" y="250" style="fill:#059669">✓ ptr[0] = 'A'：OK</text>
+  <text class="err" x="486" y="250">✗ ptr[16384] = 'X'：SIGBUS</text>
+  <text class="sub" x="60" y="272">修复方法：映射前先 ftruncate(fd, 映射长度)，让文件覆盖所有要访问的页。</text>
+
+  <!-- 下半：信号恢复 -->
+  <text class="hd" x="60" y="318">② demo 怎么捕获这个信号而不崩溃</text>
+
+  <rect class="ctrl" x="40" y="335" width="200" height="66" rx="8"/>
+  <text class="mono" x="140" y="361" text-anchor="middle" style="font-size:13px">sigsetjmp(buf, 1)</text>
+  <text class="sub" x="140" y="384" text-anchor="middle">保存现场，第一次返回 0</text>
+
+  <rect class="main" x="270" y="335" width="200" height="66" rx="8"/>
+  <text class="mono" x="370" y="361" text-anchor="middle" style="font-size:13px">ptr[16384] = 'X'</text>
+  <text class="sub" x="370" y="384" text-anchor="middle">访问超出文件的那一页</text>
+
+  <rect class="bad" x="500" y="335" width="200" height="66" rx="8"/>
+  <text class="t" x="600" y="361" text-anchor="middle" style="font-size:13px;fill:#dc2626;font-weight:600">内核投递 SIGBUS</text>
+  <text class="sub" x="600" y="384" text-anchor="middle">缺页处理发现：页在 EOF 之后</text>
+
+  <rect class="ctrl" x="730" y="335" width="200" height="66" rx="8"/>
+  <text class="mono" x="830" y="361" text-anchor="middle" style="font-size:13px">sigsegv_handler</text>
+  <text class="mono" x="830" y="384" text-anchor="middle" style="font-size:12px">siglongjmp(buf, 1)</text>
+
+  <line class="lb" x1="240" y1="368" x2="266" y2="368" marker-end="url(#b)"/>
+  <line class="lr" x1="470" y1="368" x2="496" y2="368" marker-end="url(#r)"/>
+  <line class="lr" x1="700" y1="368" x2="726" y2="368" marker-end="url(#r)"/>
+
+  <path class="lg" d="M830,401 V440 H140 V405" marker-end="url(#gr)"/>
+  <text class="sub" x="485" y="432" text-anchor="middle" style="fill:#059669">跳回 sigsetjmp 的位置，它“第二次”返回 1</text>
+
+  <path class="lg" d="M140,440 V505 H266" marker-end="url(#gr)"/>
+  <rect class="ctrl" x="270" y="475" width="430" height="62" rx="8"/>
+  <text class="t" x="485" y="500" text-anchor="middle" style="font-size:13px">sigsetjmp 返回 1 → 走 else 分支</text>
+  <text class="sub" x="485" y="522" text-anchor="middle">打印 Caught SIGBUS/SIGSEGV，恢复原来的 handler，程序继续运行</text>
+
+  <text class="sub" x="40" y="565">为什么 handler 里不能直接 return？返回后 CPU 会重新执行出错的那条指令，再次触发 SIGBUS，陷入死循环。</text>
+
+  <!-- 图例 -->
+  <g transform="translate(40,598)">
+    <rect class="main" x="0" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="24" y="1">正常数据 / 正常执行</text>
+    <rect class="zero" x="160" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="184" y="1">页内零填充</text>
+    <rect class="bad" x="290" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="314" y="1">触发 SIGBUS</text>
+    <rect class="ctrl" x="410" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="434" y="1">信号恢复机制</text>
+  </g>
+</svg>

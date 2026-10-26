@@ -1,0 +1,147 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 720" width="960" height="720">
+  <title>mlock / munlock 做了什么</title>
+  <style>
+    .t     { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #0f172a; }
+    .mono  { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 12.5px; fill: #0f172a; font-weight: 600; }
+    .sub   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #475569; }
+    .lbl   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12.5px; fill: #1e293b; font-weight: 600; }
+    .h     { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 15px; font-weight: 700; fill: #0f172a; }
+    .card  { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.2; }
+    .pg-none   { fill: #ffffff; stroke: #94a3b8; stroke-dasharray: 3 2; }
+    .pg-res    { fill: #bfdbfe; stroke: #2563eb; }
+    .pg-lock   { fill: #a7f3d0; stroke: #059669; stroke-width: 1.5; }
+    .arrow { stroke: #64748b; stroke-width: 1.8; fill: none; }
+  </style>
+  <defs>
+    <marker id="ma" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#64748b"/></marker>
+    <!-- 小锁图标：锁定的页 -->
+    <g id="lock">
+      <path d="M-4,-1 V-4 A4,4 0 0 1 4,-4 V-1" fill="none" stroke="#065f46" stroke-width="1.5"/>
+      <rect x="-5.5" y="-1" width="11" height="8" rx="1.5" fill="#065f46"/>
+    </g>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="959" height="719" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+  <text class="t" x="480" y="36" font-size="20" font-weight="700" text-anchor="middle">mlock：把页「钉」在物理内存里，内存再紧张也不换出</text>
+  <text class="sub" x="480" y="58" text-anchor="middle" style="font-size:13px">下方页条为本机实测：8MB 匿名映射 = 512 页（16KB/页），这里每格代表 64 页</text>
+
+  <!-- ===== 第一部分：四个时刻 ===== -->
+  <rect class="card" x="40"  y="76" width="205" height="128" rx="10"/>
+  <text class="mono" x="56" y="98">① mmap(8MB)</text>
+  <text class="sub"  x="56" y="120">只登记一段虚拟地址（VMA）</text>
+  <text class="sub"  x="56" y="138">物理页一个都没分配</text>
+  <text class="lbl"  x="56" y="160">驻留：0 页</text>
+
+  <rect class="card" x="265" y="76" width="205" height="128" rx="10" style="stroke:#059669"/>
+  <text class="mono" x="281" y="98">② mlock(p, 8MB)</text>
+  <text class="sub"  x="281" y="120">立刻逐页「预缺页」调入内存</text>
+  <text class="sub"  x="281" y="138">VMA 标记 VM_LOCKED</text>
+  <text class="lbl"  x="281" y="160" style="fill:#059669">驻留 512 页（一字节没碰）</text>
+
+  <rect class="card" x="490" y="76" width="205" height="128" rx="10" style="stroke:#059669"/>
+  <text class="mono" x="506" y="98">③ 内存紧张时</text>
+  <text class="sub"  x="506" y="120">回收线程跳过锁定的页：</text>
+  <text class="sub"  x="506" y="138">不换出、不丢弃</text>
+  <text class="lbl"  x="506" y="160" style="fill:#059669">访问永远不会缺页</text>
+
+  <rect class="card" x="715" y="76" width="205" height="128" rx="10"/>
+  <text class="mono" x="731" y="98">④ munlock(p, 8MB)</text>
+  <text class="sub"  x="731" y="120">只是取消锁定</text>
+  <text class="sub"  x="731" y="138">页不会被释放，仍在内存</text>
+  <text class="lbl"  x="731" y="160">驻留 512 页，但可被回收了</text>
+
+  <line class="arrow" x1="245" y1="140" x2="261" y2="140" marker-end="url(#ma)"/>
+  <line class="arrow" x1="470" y1="140" x2="486" y2="140" marker-end="url(#ma)"/>
+  <line class="arrow" x1="695" y1="140" x2="711" y2="140" marker-end="url(#ma)"/>
+
+  <!-- 页条 -->
+  <g>
+    <rect class="pg-none" x="56"  y="174" width="18" height="18" rx="2"/><rect class="pg-none" x="78"  y="174" width="18" height="18" rx="2"/>
+    <rect class="pg-none" x="100" y="174" width="18" height="18" rx="2"/><rect class="pg-none" x="122" y="174" width="18" height="18" rx="2"/>
+    <rect class="pg-none" x="144" y="174" width="18" height="18" rx="2"/><rect class="pg-none" x="166" y="174" width="18" height="18" rx="2"/>
+    <rect class="pg-none" x="188" y="174" width="18" height="18" rx="2"/><rect class="pg-none" x="210" y="174" width="18" height="18" rx="2"/>
+  </g>
+  <g>
+    <rect class="pg-lock" x="281" y="174" width="18" height="18" rx="2"/><rect class="pg-lock" x="303" y="174" width="18" height="18" rx="2"/>
+    <rect class="pg-lock" x="325" y="174" width="18" height="18" rx="2"/><rect class="pg-lock" x="347" y="174" width="18" height="18" rx="2"/>
+    <rect class="pg-lock" x="369" y="174" width="18" height="18" rx="2"/><rect class="pg-lock" x="391" y="174" width="18" height="18" rx="2"/>
+    <rect class="pg-lock" x="413" y="174" width="18" height="18" rx="2"/><rect class="pg-lock" x="435" y="174" width="18" height="18" rx="2"/>
+    <use href="#lock" x="290" y="182"/><use href="#lock" x="312" y="182"/><use href="#lock" x="334" y="182"/><use href="#lock" x="356" y="182"/>
+    <use href="#lock" x="378" y="182"/><use href="#lock" x="400" y="182"/><use href="#lock" x="422" y="182"/><use href="#lock" x="444" y="182"/>
+  </g>
+  <g>
+    <rect class="pg-lock" x="506" y="174" width="18" height="18" rx="2"/><rect class="pg-lock" x="528" y="174" width="18" height="18" rx="2"/>
+    <rect class="pg-lock" x="550" y="174" width="18" height="18" rx="2"/><rect class="pg-lock" x="572" y="174" width="18" height="18" rx="2"/>
+    <rect class="pg-lock" x="594" y="174" width="18" height="18" rx="2"/><rect class="pg-lock" x="616" y="174" width="18" height="18" rx="2"/>
+    <rect class="pg-lock" x="638" y="174" width="18" height="18" rx="2"/><rect class="pg-lock" x="660" y="174" width="18" height="18" rx="2"/>
+    <use href="#lock" x="515" y="182"/><use href="#lock" x="537" y="182"/><use href="#lock" x="559" y="182"/><use href="#lock" x="581" y="182"/>
+    <use href="#lock" x="603" y="182"/><use href="#lock" x="625" y="182"/><use href="#lock" x="647" y="182"/><use href="#lock" x="669" y="182"/>
+  </g>
+  <g>
+    <rect class="pg-res" x="731" y="174" width="18" height="18" rx="2"/><rect class="pg-res" x="753" y="174" width="18" height="18" rx="2"/>
+    <rect class="pg-res" x="775" y="174" width="18" height="18" rx="2"/><rect class="pg-res" x="797" y="174" width="18" height="18" rx="2"/>
+    <rect class="pg-res" x="819" y="174" width="18" height="18" rx="2"/><rect class="pg-res" x="841" y="174" width="18" height="18" rx="2"/>
+    <rect class="pg-res" x="863" y="174" width="18" height="18" rx="2"/><rect class="pg-res" x="885" y="174" width="18" height="18" rx="2"/>
+  </g>
+
+  <!-- 图例 -->
+  <rect class="pg-none" x="40"  y="218" width="14" height="14" rx="2"/><text class="sub" x="60"  y="230">未分配</text>
+  <rect class="pg-res"  x="120" y="218" width="14" height="14" rx="2"/><text class="sub" x="140" y="230">在内存，可被回收</text>
+  <rect class="pg-lock" x="260" y="218" width="14" height="14" rx="2"/><use href="#lock" x="267" y="224"/><text class="sub" x="280" y="230">在内存，已锁定</text>
+
+  <!-- ===== 第二部分：回收时为什么锁定页不受影响 ===== -->
+  <text class="h" x="40" y="270">内存紧张时，内核怎么挑要回收的页</text>
+
+  <rect x="40" y="282" width="520" height="226" rx="10" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text class="lbl" x="56" y="304">物理内存</text>
+
+  <rect x="56" y="314" width="488" height="86" rx="8" fill="#eff6ff" stroke="#2563eb"/>
+  <text class="lbl" x="72" y="334">可回收 LRU 链表（active / inactive）</text>
+  <rect class="pg-res" x="72"  y="344" width="26" height="26" rx="3"/><rect class="pg-res" x="104" y="344" width="26" height="26" rx="3"/>
+  <rect class="pg-res" x="136" y="344" width="26" height="26" rx="3"/><rect class="pg-res" x="168" y="344" width="26" height="26" rx="3"/>
+  <rect class="pg-res" x="200" y="344" width="26" height="26" rx="3"/><rect class="pg-res" x="232" y="344" width="26" height="26" rx="3"/>
+  <rect class="pg-res" x="264" y="344" width="26" height="26" rx="3"/>
+  <text class="sub" x="304" y="362">堆、栈、普通文件页 …</text>
+  <text class="sub" x="72" y="390">越久没访问的页越靠近链表尾部，越先被回收</text>
+
+  <rect x="56" y="410" width="488" height="86" rx="8" fill="#ecfdf5" stroke="#059669"/>
+  <text class="lbl" x="72" y="430">不可回收链表（unevictable）</text>
+  <rect class="pg-lock" x="72"  y="440" width="26" height="26" rx="3"/><use href="#lock" x="85"  y="452"/>
+  <rect class="pg-lock" x="104" y="440" width="26" height="26" rx="3"/><use href="#lock" x="117" y="452"/>
+  <rect class="pg-lock" x="136" y="440" width="26" height="26" rx="3"/><use href="#lock" x="149" y="452"/>
+  <rect class="pg-lock" x="168" y="440" width="26" height="26" rx="3"/><use href="#lock" x="181" y="452"/>
+  <text class="sub" x="208" y="458">mlock 的页、ramfs 页 …</text>
+  <text class="lbl" x="72" y="486" style="fill:#dc2626">✗ 回收线程根本不扫描这条链表</text>
+
+  <rect x="600" y="282" width="320" height="64" rx="10" fill="#ffffff" stroke="#64748b"/>
+  <text class="lbl" x="616" y="306">kswapd / 直接回收</text>
+  <text class="sub" x="616" y="328">只从可回收链表的尾部挑页</text>
+  <line class="arrow" x1="600" y1="322" x2="548" y2="340" marker-end="url(#ma)"/>
+
+  <rect x="600" y="384" width="320" height="124" rx="10" fill="#fff7ed" stroke="#ea580c"/>
+  <text class="lbl" x="616" y="406">被挑中的页去哪</text>
+  <text class="sub" x="616" y="428">匿名页 → swap / zram（macOS：先压缩）</text>
+  <text class="sub" x="616" y="448">干净文件页 → 直接丢弃</text>
+  <text class="sub" x="616" y="468">脏文件页 → 先写回，再丢弃</text>
+  <text class="lbl" x="616" y="492" style="fill:#ea580c">再访问：缺页，从磁盘读回（毫秒级）</text>
+  <line class="arrow" x1="544" y1="380" x2="596" y2="420" marker-end="url(#ma)"/>
+
+  <!-- ===== 第三部分：能锁多少 ===== -->
+  <text class="h" x="40" y="550">能锁多少：进程级 + 系统级两层限制（本机实测）</text>
+
+  <rect class="card" x="40" y="562" width="430" height="140" rx="10"/>
+  <text class="lbl" x="56" y="586">Linux</text>
+  <text class="sub" x="56" y="608">进程级 RLIMIT_MEMLOCK（ulimit -l）：普通用户默认 8MB</text>
+  <text class="sub" x="56" y="628">（内核 5.16 起；更早的内核默认只有 64KB）</text>
+  <text class="sub" x="56" y="648">实测：限制 8MB 时锁 4MB 成功，锁 64MB → ENOMEM</text>
+  <text class="sub" x="56" y="668">有 CAP_IPC_LOCK 权限（通常是 root）不受此限</text>
+  <text class="sub" x="56" y="688">查看：/proc/self/status 的 VmLck，/proc/meminfo 的 Mlocked</text>
+
+  <rect class="card" x="490" y="562" width="430" height="140" rx="10"/>
+  <text class="lbl" x="506" y="586">macOS</text>
+  <text class="sub" x="506" y="608">进程级 RLIMIT_MEMLOCK：默认无限制</text>
+  <text class="sub" x="506" y="628">系统级 vm.user_wire_limit：本机 18.2GB（约物理内存 76%）</text>
+  <text class="sub" x="506" y="648">实测：锁 8MB 成功，锁 64GB → EAGAIN</text>
+  <text class="sub" x="506" y="668">锁定的页算作「联动内存」（Wired），</text>
+  <text class="sub" x="506" y="688">可在活动监视器的「内存」页看到</text>
+</svg>

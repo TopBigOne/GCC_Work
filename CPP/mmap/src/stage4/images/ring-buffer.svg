@@ -1,0 +1,159 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 880" width="960" height="880">
+  <title>SPSC 环形缓冲区</title>
+  <style>
+    .t      { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #0f172a; }
+    .mono   { font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace; fill: #0f172a; font-size: 12px; }
+    .sub    { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 12px; fill: #475569; }
+    .head   { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 14px; font-weight: 600; fill: #334155; }
+    .lbl    { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-size: 14px; font-weight: 700; fill: #0f172a; }
+    .err    { fill: #dc2626; font-weight: 600; }
+    .cell   { fill: #ffffff; stroke: #94a3b8; stroke-width: 1; }
+    .full   { fill: #dbeafe; stroke: #2563eb; stroke-width: 1; }
+    .gap    { fill: #fee2e2; stroke: #dc2626; stroke-width: 1.2; }
+    .main   { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.5; }
+    .ctrl   { fill: #ecfdf5; stroke: #059669; stroke-width: 1.5; }
+    .persist{ fill: #fff7ed; stroke: #ea580c; stroke-width: 1.5; }
+    .plain  { fill: #f8fafc; stroke: #94a3b8; stroke-width: 1.2; }
+    .hp     { stroke: #2563eb; stroke-width: 2; fill: none; }
+    .tp     { stroke: #059669; stroke-width: 2; fill: none; }
+    .life   { stroke: #94a3b8; stroke-width: 1.5; stroke-dasharray: 5 4; fill: none; }
+    .msg    { stroke: #475569; stroke-width: 1.5; fill: none; }
+    .rel    { stroke: #ea580c; stroke-width: 2.4; fill: none; }
+  </style>
+  <defs>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/>
+    </marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#059669"/>
+    </marker>
+    <marker id="as" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+    <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/>
+    </marker>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="959" height="879" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+
+  <text class="t" x="480" y="40" font-size="22" font-weight="700" text-anchor="middle">SPSC 环形缓冲区：head / tail 与 acquire / release</text>
+  <text class="sub" x="480" y="64" text-anchor="middle" style="font-size:13px">RingBuffer&lt;int, 16&gt; 整个放在共享内存里：生产者只写 head_，消费者只写 tail_</text>
+
+  <!-- 下标 -->
+  <g class="sub" text-anchor="middle" style="font-size:10.5px">
+    <text x="269" y="98">0</text><text x="307" y="98">1</text><text x="345" y="98">2</text><text x="383" y="98">3</text>
+    <text x="421" y="98">4</text><text x="459" y="98">5</text><text x="497" y="98">6</text><text x="535" y="98">7</text>
+    <text x="573" y="98">8</text><text x="611" y="98">9</text><text x="649" y="98">10</text><text x="687" y="98">11</text>
+    <text x="725" y="98">12</text><text x="763" y="98">13</text><text x="801" y="98">14</text><text x="839" y="98">15</text>
+  </g>
+
+  <!-- ===== 行 1：空 ===== -->
+  <text class="lbl" x="40" y="122">空</text>
+  <text class="mono" x="40" y="140">head == tail</text>
+  <g>
+    <rect class="cell" x="250" y="104" width="38" height="36"/><rect class="cell" x="288" y="104" width="38" height="36"/>
+    <rect class="cell" x="326" y="104" width="38" height="36"/><rect class="cell" x="364" y="104" width="38" height="36"/>
+    <rect class="cell" x="402" y="104" width="38" height="36"/><rect class="cell" x="440" y="104" width="38" height="36"/>
+    <rect class="cell" x="478" y="104" width="38" height="36"/><rect class="cell" x="516" y="104" width="38" height="36"/>
+    <rect class="cell" x="554" y="104" width="38" height="36"/><rect class="cell" x="592" y="104" width="38" height="36"/>
+    <rect class="cell" x="630" y="104" width="38" height="36"/><rect class="cell" x="668" y="104" width="38" height="36"/>
+    <rect class="cell" x="706" y="104" width="38" height="36"/><rect class="cell" x="744" y="104" width="38" height="36"/>
+    <rect class="cell" x="782" y="104" width="38" height="36"/><rect class="cell" x="820" y="104" width="38" height="36"/>
+  </g>
+  <line class="hp" x1="383" y1="170" x2="383" y2="144" marker-end="url(#ab)"/>
+  <text class="mono" x="395" y="166">head = tail = 3</text>
+
+  <!-- ===== 行 2：3 个元素 ===== -->
+  <text class="lbl" x="40" y="212">有 3 个元素</text>
+  <text class="mono" x="40" y="230" style="font-size:11px">(head−tail+N)%N = 3</text>
+  <g>
+    <rect class="cell" x="250" y="194" width="38" height="36"/><rect class="cell" x="288" y="194" width="38" height="36"/>
+    <rect class="cell" x="326" y="194" width="38" height="36"/><rect class="full" x="364" y="194" width="38" height="36"/>
+    <rect class="full" x="402" y="194" width="38" height="36"/><rect class="full" x="440" y="194" width="38" height="36"/>
+    <rect class="cell" x="478" y="194" width="38" height="36"/><rect class="cell" x="516" y="194" width="38" height="36"/>
+    <rect class="cell" x="554" y="194" width="38" height="36"/><rect class="cell" x="592" y="194" width="38" height="36"/>
+    <rect class="cell" x="630" y="194" width="38" height="36"/><rect class="cell" x="668" y="194" width="38" height="36"/>
+    <rect class="cell" x="706" y="194" width="38" height="36"/><rect class="cell" x="744" y="194" width="38" height="36"/>
+    <rect class="cell" x="782" y="194" width="38" height="36"/><rect class="cell" x="820" y="194" width="38" height="36"/>
+  </g>
+  <g class="mono" text-anchor="middle" style="font-size:12px">
+    <text x="383" y="217">0</text><text x="421" y="217">10</text><text x="459" y="217">20</text>
+  </g>
+  <line class="tp" x1="383" y1="260" x2="383" y2="234" marker-end="url(#ag)"/>
+  <text class="mono" x="383" y="276" text-anchor="middle" style="fill:#059669">tail=3</text>
+  <line class="hp" x1="497" y1="260" x2="497" y2="234" marker-end="url(#ab)"/>
+  <text class="mono" x="497" y="276" text-anchor="middle" style="fill:#2563eb">head=6</text>
+  <text class="sub" x="560" y="268">tail 指向下一个要读的，head 指向下一个要写的</text>
+
+  <!-- ===== 行 3：满 ===== -->
+  <text class="lbl" x="40" y="302">满</text>
+  <text class="mono" x="40" y="320" style="font-size:11px">(head+1)%N == tail</text>
+  <g>
+    <rect class="full" x="250" y="284" width="38" height="36"/><rect class="full" x="288" y="284" width="38" height="36"/>
+    <rect class="gap" x="326" y="284" width="38" height="36"/><rect class="full" x="364" y="284" width="38" height="36"/>
+    <rect class="full" x="402" y="284" width="38" height="36"/><rect class="full" x="440" y="284" width="38" height="36"/>
+    <rect class="full" x="478" y="284" width="38" height="36"/><rect class="full" x="516" y="284" width="38" height="36"/>
+    <rect class="full" x="554" y="284" width="38" height="36"/><rect class="full" x="592" y="284" width="38" height="36"/>
+    <rect class="full" x="630" y="284" width="38" height="36"/><rect class="full" x="668" y="284" width="38" height="36"/>
+    <rect class="full" x="706" y="284" width="38" height="36"/><rect class="full" x="744" y="284" width="38" height="36"/>
+    <rect class="full" x="782" y="284" width="38" height="36"/><rect class="full" x="820" y="284" width="38" height="36"/>
+  </g>
+  <text class="sub" x="345" y="307" text-anchor="middle" style="fill:#dc2626; font-size:11px">空位</text>
+  <line class="hp" x1="345" y1="350" x2="345" y2="324" marker-end="url(#ab)"/>
+  <text class="mono" x="338" y="366" text-anchor="end" style="fill:#2563eb">head=2</text>
+  <line class="tp" x1="383" y1="350" x2="383" y2="324" marker-end="url(#ag)"/>
+  <text class="mono" x="390" y="366" style="fill:#059669">tail=3</text>
+  <text class="sub" x="560" y="358">故意空一格来区分"满"和"空" → 实际容量 N − 1 = 15</text>
+
+  <!-- ===== 时序 ===== -->
+  <text class="head" x="40" y="410">一次 push → pop 的顺序（为什么不加锁也正确）</text>
+
+  <rect class="main" x="110" y="426" width="180" height="40" rx="8"/>
+  <text class="t" x="200" y="451" text-anchor="middle" style="font-size:13px">生产者（子进程）</text>
+  <rect class="plain" x="380" y="426" width="200" height="40" rx="8"/>
+  <text class="t" x="480" y="451" text-anchor="middle" style="font-size:13px">共享内存里的 RingBuffer</text>
+  <rect class="ctrl" x="670" y="426" width="180" height="40" rx="8"/>
+  <text class="t" x="760" y="451" text-anchor="middle" style="font-size:13px">消费者（父进程）</text>
+
+  <line class="life" x1="200" y1="466" x2="200" y2="716"/>
+  <line class="life" x1="480" y1="466" x2="480" y2="716"/>
+  <line class="life" x1="760" y1="466" x2="760" y2="716"/>
+
+  <!-- push -->
+  <line class="msg" x1="478" y1="500" x2="204" y2="500" marker-end="url(#as)"/>
+  <text class="sub" x="340" y="492" text-anchor="middle">① 读 tail_（acquire）判断满没满</text>
+  <line class="msg" x1="202" y1="540" x2="476" y2="540" marker-end="url(#as)"/>
+  <text class="mono" x="340" y="532" text-anchor="middle" style="font-size:11.5px">② data_[h] = item</text>
+  <line class="rel" x1="202" y1="580" x2="476" y2="580" marker-end="url(#ao)"/>
+  <text class="mono" x="340" y="572" text-anchor="middle" style="font-size:11.5px; fill:#ea580c">③ head_.store(next, release)</text>
+
+  <!-- pop -->
+  <line class="rel" x1="482" y1="620" x2="756" y2="620" marker-end="url(#ao)"/>
+  <text class="mono" x="620" y="612" text-anchor="middle" style="font-size:11.5px; fill:#ea580c">④ head_.load(acquire)</text>
+  <line class="msg" x1="482" y1="660" x2="756" y2="660" marker-end="url(#as)"/>
+  <text class="mono" x="620" y="652" text-anchor="middle" style="font-size:11.5px">⑤ item = data_[t]</text>
+  <line class="msg" x1="758" y1="700" x2="484" y2="700" marker-end="url(#as)"/>
+  <text class="mono" x="620" y="692" text-anchor="middle" style="font-size:11.5px">⑥ tail_.store(t+1, release)</text>
+
+  <!-- 配对说明 -->
+  <rect class="persist" x="40" y="734" width="880" height="62" rx="8"/>
+  <text class="t" x="60" y="758" style="font-size:13px"><tspan style="font-weight:700; fill:#ea580c">③ release 与 ④ acquire 配对：</tspan>消费者一旦读到新的 head_，就一定能看到 ② 写进去的数据</text>
+  <text class="sub" x="60" y="780">如果都用 relaxed，CPU / 编译器可以把 ② 和 ③ 重排，消费者可能先看到 head_ 前进、却读到还没写完的 data_[h]</text>
+
+  <text class="sub" x="40" y="822">跨进程使用 std::atomic 的前提：必须是 lock-free（atomic&lt;uint32_t&gt; 是）。多个生产者 / 消费者时要改用 CAS，或 PTHREAD_PROCESS_SHARED 互斥锁。</text>
+
+  <!-- 图例 -->
+  <g transform="translate(40, 856)">
+    <rect class="full" x="0" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="24" y="1">有数据的槽</text>
+    <rect class="gap" x="120" y="-12" width="16" height="16" rx="3"/>
+    <text class="sub" x="144" y="1">保留的空位</text>
+    <line class="hp" x1="250" y1="-4" x2="276" y2="-4"/>
+    <text class="sub" x="284" y="1">head（生产者写）</text>
+    <line class="tp" x1="410" y1="-4" x2="436" y2="-4"/>
+    <text class="sub" x="444" y="1">tail（消费者写）</text>
+    <line class="rel" x1="570" y1="-4" x2="596" y2="-4"/>
+    <text class="sub" x="604" y="1">release / acquire 同步点</text>
+  </g>
+</svg>
